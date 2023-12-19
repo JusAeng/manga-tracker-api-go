@@ -1,9 +1,11 @@
 package main
 
 import (
+	"github.com/JusAeng/manga-tracker-api-go/db"
+	"github.com/JusAeng/manga-tracker-api-go/router"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-  )
+)
 
 func main() {
 	app := fiber.New()
@@ -14,10 +16,10 @@ func main() {
 		AllowMethods: "GET,POST,HEAD,PUT,DELETE,PATCH",
 		AllowHeaders: "Origin, Content-Type, Accept",
 	}))
-  
-	app.Get("/hello", func(c *fiber.Ctx) error {
-	  return c.SendString("Hello World")
-	})
+
+	db.Connect();
+
+	router.Run(app)
   
 	app.Listen(":8080")
   }
