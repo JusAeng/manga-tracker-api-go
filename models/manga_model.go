@@ -7,4 +7,5 @@ import (
 type Manga struct {
 	ID      primitive.ObjectID 	`json:"_id" bson:"_id"`
 	Title   string  			`json:"title"`
+	Vol		[]int				`json:"vol"`
 }
