@@ -13,6 +13,14 @@ func Run(app *fiber.App){
 	app.Delete("/mangas/:title", handlers.DeleteMangaByTitleHandler)
 	app.Post("/mangas", handlers.AddMangaHandler)
 
+	// user
+	// app.Put("/user/subscribe/:id",handlers.SubscribeByIdHandler)
+
 	//auth
-	app.Get("/auth/:id",handlers.GetLineProfileByTokenIdHandler)
+	app.Get("/auth/:id",handlers.Login)
+
+	//foo
+	app.Post("/foo/user",handlers.FooAddUser)
+	app.Get("/foo/user/:id",handlers.FooLogin)
+	app.Delete("/foo/user/:id",handlers.FooDeleteUser)
 }
