@@ -14,7 +14,7 @@ func Run(app *fiber.App){
 	app.Post("/mangas", handlers.AddMangaHandler)
 
 	// user
-	// app.Put("/user/subscribe/:id",handlers.SubscribeByIdHandler)
+	app.Put("/user/subscribe/:id",handlers.SubscribeByIdHandler)
 
 	//auth
 	app.Get("/auth/:id",handlers.Login)

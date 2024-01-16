@@ -15,7 +15,7 @@ import (
 func GetUserProfile(userId string) (*models.User) {
 	var userProfile *models.User
 	objectID, err := primitive.ObjectIDFromHex(userId)
-	
+
 	collection := db.Client.Database("manga-tracker").Collection("users")
 	err = collection.FindOne(context.TODO(), bson.M{"_id": objectID}).Decode(&userProfile)
 	if err != nil {
@@ -45,4 +45,39 @@ func DeleteUserById(userId string) error{
 		log.Printf("Error : %v", err)
 	}
 	return nil
+}
+
+// put
+func SubscribeMangaById(mangaId string) error{
+	objectID, err := primitive.ObjectIDFromHex(mangaId)
+	collection := db.Client.Database("manga-tracker").Collection("mangas")
+	_,err = collection.Find(context.TODO(), bson.M{"_id": objectID})
+	if (err != nil){
+		fmt.Println(err)
+		return err
+	}
+
+	collection = db.Client.Database("manga-tracker").Collection("users")
+	userId := "5f563a9da793b25a09529234"
+	objectID, err = primitive.ObjectIDFromHex(userId)
+
+	var user *models.User
+	err = collection.FindOne(context.TODO(), bson.M{"_id":objectID}).Decode(&user)
+	if user.SubscribeList == nil {
+		user.SubscribeList = make(map[string][]int)
+	}
+	user.SubscribeList[mangaId] = []int{}
+	update := bson.M{
+		"$set": bson.M{
+			"subscribeList": user.SubscribeList,
+		},
+	}
+	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": objectID}, update)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	return nil
+
 }
