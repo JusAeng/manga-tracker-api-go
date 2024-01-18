@@ -15,6 +15,7 @@ func Run(app *fiber.App){
 
 	// user
 	app.Put("/user/subscribe/:id",handlers.SubscribeByIdHandler)
+	app.Patch("/user/:id",handlers.UpdateUserProfile)
 
 	//auth
 	app.Get("/auth/:id",handlers.Login)

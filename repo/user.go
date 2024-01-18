@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 
@@ -11,23 +12,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// read
-func GetUserProfile(userId string) (*models.User) {
-	var userProfile *models.User
-	objectID, err := primitive.ObjectIDFromHex(userId)
-
-	collection := db.Client.Database("manga-tracker").Collection("users")
-	err = collection.FindOne(context.TODO(), bson.M{"_id": objectID}).Decode(&userProfile)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-
-	return userProfile
-}
-
 // create
-func AddUser(user *models.User) (*models.User, error) {
+func CreateUser(user *models.User) (*models.User, error) {
 	_, err := db.Client.Database("manga-tracker").Collection("users").InsertOne(context.TODO(), user)
 	if err != nil {
 		log.Printf("Couldn't create user : %v", err)
@@ -38,14 +24,47 @@ func AddUser(user *models.User) (*models.User, error) {
 }
 
 // delete
-func DeleteUserById(userId string) error{
+func DeleteUserById(userId primitive.ObjectID) error{
 	collection := db.Client.Database("manga-tracker").Collection("users")
-	_, err := collection.DeleteOne(context.TODO(), bson.M{"_id": userId})
+	result, err := collection.DeleteOne(context.TODO(), bson.M{"_id": userId})
 	if err != nil {
-		log.Printf("Error : %v", err)
+		log.Fatalf("[User] Error to delete user: %v", err)
+	}
+	if result.DeletedCount == 1 {
+		fmt.Println("[User] Delete userId:",userId)
 	}
 	return nil
 }
+
+// read
+func GetUserProfileById(userId primitive.ObjectID) (*models.User) {
+	var userProfile *models.User
+	collection := db.Client.Database("manga-tracker").Collection("users")
+	err := collection.FindOne(context.TODO(), bson.M{"_id": userId}).Decode(&userProfile)
+	if err != nil {
+		log.Fatal(err)
+		return nil
+	}
+	return userProfile
+}
+
+// patch
+func UpdateUserProfile(userId primitive.ObjectID,key string,newValue string) error{
+	fmt.Println("value",key,newValue)
+	if (key != "name" && key != "image") {
+		return errors.New("This key is not allow to change")
+	}
+	collection := db.Client.Database("manga-tracker").Collection("users")
+	filter := bson.M{"_id": userId}
+	update := bson.M{"$set": bson.M{key: newValue}}
+	_, err := collection.UpdateOne(context.TODO(), filter, update)
+	if err != nil{
+		log.Fatal("Repository: update user name to DB error ",err)
+		return err
+	}
+	return nil
+}
+
 
 // put
 func SubscribeMangaById(mangaId string) error{
@@ -64,9 +83,9 @@ func SubscribeMangaById(mangaId string) error{
 	var user *models.User
 	err = collection.FindOne(context.TODO(), bson.M{"_id":objectID}).Decode(&user)
 	if user.SubscribeList == nil {
-		user.SubscribeList = make(map[string][]int)
+		user.SubscribeList = make([]string,0)
 	}
-	user.SubscribeList[mangaId] = []int{}
+	user.SubscribeList = append(user.SubscribeList, mangaId)
 	update := bson.M{
 		"$set": bson.M{
 			"subscribeList": user.SubscribeList,
@@ -79,5 +98,17 @@ func SubscribeMangaById(mangaId string) error{
 	}
 
 	return nil
+}
 
+func AddMangaVols(userId primitive.ObjectID,mangaId primitive.ObjectID,vols []int) error {
+	collection := db.Client.Database("manga-tracker").Collection("users")
+
+	var user *models.User
+	err := collection.FindOne(context.TODO(), bson.M{"_id":userId}).Decode(&user)
+	if err != nil {
+		log.Fatalln("Find user error:",err)
+		return err
+	}
+	return err
+	
 }

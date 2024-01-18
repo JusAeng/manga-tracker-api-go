@@ -62,3 +62,11 @@ func GetLineProfileByTokenIdHandler(c *fiber.Ctx) error {
 	// Return the parsed response body as JSON
 	return c.JSON(responseBody)
 }
+
+func Login(c *fiber.Ctx) error {
+	return nil
+}
+
+func Register(c *fiber.Ctx) error {
+	return nil
+}

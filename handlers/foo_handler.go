@@ -7,6 +7,7 @@ import (
 	"github.com/JusAeng/manga-tracker-api-go/models"
 	"github.com/JusAeng/manga-tracker-api-go/repo"
 	"github.com/gofiber/fiber/v2"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func FooLogin(c *fiber.Ctx) error {
@@ -14,7 +15,12 @@ func FooLogin(c *fiber.Ctx) error {
 	hashSub := sub+"4"
 	
 	fmt.Println(hashSub)
-	userProfile := repo.GetUserProfile(hashSub)
+	objectID, err := primitive.ObjectIDFromHex(hashSub)
+	if err != nil{
+		return nil
+	}
+	userProfile := repo.GetUserProfileById(objectID)
+	
 	return c.JSON(userProfile)
 }
 
@@ -26,7 +32,7 @@ func FooAddUser(c *fiber.Ctx) error {
     	log.Println("Request Body:", c.Body()) // Print the request body for debugging
 		return c.Status(fiber.StatusBadRequest).SendString("nani")
 	}
-	newUser, err := repo.AddUser(user)
+	newUser, err := repo.CreateUser(user)
 	if err != nil {
 		return c.Status(fiber.StatusAccepted).SendString("nnai")
 	}
@@ -35,9 +41,12 @@ func FooAddUser(c *fiber.Ctx) error {
 }
 
 func FooDeleteUser(c *fiber.Ctx) error {
-	userId := c.Params("title")
-	
-	err := repo.DeleteUserById(userId)
+	userId := c.Params("id")
+	objectID, err := primitive.ObjectIDFromHex(userId)
+	if err != nil{
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	err = repo.DeleteUserById(objectID)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
