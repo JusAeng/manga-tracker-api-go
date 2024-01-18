@@ -36,7 +36,7 @@ func FooAddUser(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusAccepted).SendString("nnai")
 	}
-	log.Print(newUser)
+
 	return c.JSON(newUser)
 }
 

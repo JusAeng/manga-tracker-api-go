@@ -1,9 +1,12 @@
-package handlers
+package auth_handlers
 
 import (
 	"bytes"
 	"encoding/json"
+	"log"
 
+	"github.com/JusAeng/manga-tracker-api-go/models"
+	"github.com/JusAeng/manga-tracker-api-go/repo"
 	"github.com/gofiber/fiber/v2"
 
 	"fmt"
@@ -64,9 +67,26 @@ func GetLineProfileByTokenIdHandler(c *fiber.Ctx) error {
 }
 
 func Login(c *fiber.Ctx) error {
+
+	if false {
+		Register(c)
+	}
+
 	return nil
 }
 
 func Register(c *fiber.Ctx) error {
-	return nil
+	user := new(models.User)
+
+	if err := c.BodyParser(user); err != nil {
+		log.Println("Error parsing request body:", err)
+    	log.Println("Request Body:", c.Body()) // Print the request body for debugging
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	newUser, err := repo.CreateUser(user)
+	if err != nil {
+		return c.Status(fiber.StatusAccepted).SendString(err.Error())
+	}
+
+	return c.JSON(newUser)
 }

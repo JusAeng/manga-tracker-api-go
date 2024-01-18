@@ -1,4 +1,4 @@
-package handlers
+package user_handlers
 
 import (
 	"fmt"
@@ -8,14 +8,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
-
-func SubscribeByIdHandler(c *fiber.Ctx) error {
-	mangaId := c.Params("id");
-	err := repo.SubscribeMangaById(mangaId)
-
-	return err
-}
-
 type UpdateUserRequest struct {
     Key   string `json:"key"`
     Value string `json:"value"`
@@ -40,3 +32,13 @@ func UpdateUserProfile(c *fiber.Ctx) error {
 	}
 	return  c.SendStatus(fiber.StatusAccepted)
 }
+
+func UpdateSubscribe(c *fiber.Ctx) error {
+	mangaId := c.Params("id");
+	err := repo.SubscribeMangaById(mangaId)
+
+	return err
+}
+
+func UpdateOwnerList(c *fiber.Ctx) error {return nil}
+func UpdateRating(c *fiber.Ctx) error {return nil}

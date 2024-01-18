@@ -1,4 +1,4 @@
-package handlers
+package manga_handlers
 
 import (
 	"log"
@@ -73,3 +73,8 @@ func DeleteMangaByTitleHandler(c *fiber.Ctx) error{
 	}
 	return c.Status(fiber.StatusAccepted).SendString(mangaTitle)
 }
+
+// Put
+func VolumeAdding(c* fiber.Ctx) error {return nil}
+func VotingAdding(c* fiber.Ctx) error {return nil}
+func SubscribeAdding(c* fiber.Ctx) error {return nil}
