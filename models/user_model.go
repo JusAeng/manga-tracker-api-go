@@ -10,7 +10,7 @@ type User struct {
 	Image			string				`json:"image"`
 	TotalSubscribe	int					`json:"totalSubscribe"`
 	TotalBooks		int					`json:"totalBooks"`
-	SubscribeList	[]string			`json:"subscribelist"`
+	SubscribeList	[]string			`json:"subscribeList"`
 	OwnerList		map[string][]int	`json:"ownerList"`
 	RateList		map[string]int		`json:"rateList"`
 }

@@ -11,8 +11,8 @@ import (
 )
 
 func FooLogin(c *fiber.Ctx) error {
-	sub := "5f563a9da793b25a0952923"
-	hashSub := sub+"4"
+	sub := "5f563a9da793b25a09529123"
+	hashSub := sub+""
 	
 	fmt.Println(hashSub)
 	objectID, err := primitive.ObjectIDFromHex(hashSub)

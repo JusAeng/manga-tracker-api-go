@@ -3,6 +3,7 @@ package user_handlers
 import (
 	"fmt"
 	"log"
+	"strconv"
 
 	"github.com/JusAeng/manga-tracker-api-go/repo"
 	"github.com/gofiber/fiber/v2"
@@ -34,11 +35,35 @@ func UpdateUserProfile(c *fiber.Ctx) error {
 }
 
 func UpdateSubscribe(c *fiber.Ctx) error {
-	mangaId := c.Params("id");
-	err := repo.SubscribeMangaById(mangaId)
+	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
+	tempId := "5f563a9da793b25a09529123"
+	userId,err := primitive.ObjectIDFromHex(tempId)
+	if err != nil {
+		fmt.Println("Convert primitiveID from hex error")
+		return err
+	}
+	err = repo.SubscribeMangaById(userId,mangaId)
 
 	return err
 }
 
-func UpdateOwnerList(c *fiber.Ctx) error {return nil}
+func UpdateOwnerList(c *fiber.Ctx) error {
+	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString("ReqError")
+	}
+	vol,err := strconv.Atoi(c.Params("vol"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString("ReqError")
+	}
+	tempId := "5f563a9da793b25a09529123"
+	userId,err := primitive.ObjectIDFromHex(tempId)
+	if err != nil {
+		fmt.Println("Convert primitiveID from hex error")
+		return err
+	}
+	err = repo.UpdateOwnerList(userId,mangaId,vol)
+
+	return err
+}
 func UpdateRating(c *fiber.Ctx) error {return nil}
