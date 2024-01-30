@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -58,6 +59,17 @@ func GetMangaByTitle(title string) ([]*models.Manga, error) {
 	return manga, err
 }
 
+func isMangaExist(mangaId primitive.ObjectID) bool {
+	collection := db.Client.Database("manga-tracker").Collection("mangas")
+	var result *models.Manga
+	err := collection.FindOne(context.TODO(), bson.M{"_id": mangaId}).Decode(&result)
+	if (err != nil){
+		fmt.Println(err)
+		return false
+	}
+	return true
+}
+
 // Create
 func AddManga(manga *models.Manga) (*models.Manga, error) {
 	manga.ID = primitive.NewObjectID()
@@ -73,6 +85,15 @@ func AddManga(manga *models.Manga) (*models.Manga, error) {
 func DeleteMangaByTitle(title string) error {
 	collection := db.Client.Database("manga-tracker").Collection("mangas")
 	_, err := collection.DeleteOne(context.TODO(), bson.M{"title": title})
+	if err != nil {
+		log.Printf("Error : %v", err)
+	}
+	return nil
+}
+
+func DeleteMangaById(id primitive.ObjectID) error {
+	collection := db.Client.Database("manga-tracker").Collection("mangas")
+	_, err := collection.DeleteOne(context.TODO(), bson.M{"_id": id})
 	if err != nil {
 		log.Printf("Error : %v", err)
 	}
