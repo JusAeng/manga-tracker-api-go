@@ -128,13 +128,21 @@ func UpdateOwnerList(userId primitive.ObjectID,mangaId primitive.ObjectID,vol in
 		}else{
 			temp := []int{}
 			for _,v := range allvols{
-				if v != vol{
+				if v == vol {
+					vol = 9999
+					continue
+				}else{
+					if vol < v{
+						temp = append(temp, vol)
+						vol = 9999
+					}
 					temp = append(temp, v)
 				}
 			}
-			if len(temp) == len(allvols){
+			if vol < 9999 {
 				temp = append(temp, vol)
 			}
+			
 			user.OwnerList[mangaId.Hex()] = temp
 		}
 	}
@@ -154,7 +162,7 @@ func UpdateOwnerList(userId primitive.ObjectID,mangaId primitive.ObjectID,vol in
 
 func UpdateRateList(userId primitive.ObjectID,mangaId primitive.ObjectID,score int) error{
 	if !isMangaExist(mangaId){ return errors.New("No manga exist")}
-	user := getUserInfo(userId)
+	user := GetUserProfileById(userId)
 	if user.RateList == nil{
 		user.RateList = make(map[string]int)
 	}
@@ -173,15 +181,4 @@ func UpdateRateList(userId primitive.ObjectID,mangaId primitive.ObjectID,score i
 	}
 
 	return err
-}
-
-func getUserInfo(userId primitive.ObjectID) *models.User {
-    collection := db.Client.Database("manga-tracker").Collection("users")
-    var result *models.User
-    err := collection.FindOne(context.TODO(), bson.M{"_id": userId}).Decode(&result)
-    if err != nil {
-        fmt.Println("User not found")
-        return nil
-    }
-    return result
 }
