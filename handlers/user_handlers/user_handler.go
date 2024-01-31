@@ -9,6 +9,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
+
+var tempId = "5f563a9da793b25a09529123"
+
 type UpdateUserRequest struct {
     Key   string `json:"key"`
     Value string `json:"value"`
@@ -36,7 +39,6 @@ func UpdateUserProfile(c *fiber.Ctx) error {
 
 func UpdateSubscribe(c *fiber.Ctx) error {
 	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
-	tempId := "5f563a9da793b25a09529123"
 	userId,err := primitive.ObjectIDFromHex(tempId)
 	if err != nil {
 		fmt.Println("Convert primitiveID from hex error")
@@ -56,7 +58,6 @@ func UpdateOwnerList(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString("ReqError")
 	}
-	tempId := "5f563a9da793b25a09529123"
 	userId,err := primitive.ObjectIDFromHex(tempId)
 	if err != nil {
 		fmt.Println("Convert primitiveID from hex error")
@@ -66,4 +67,20 @@ func UpdateOwnerList(c *fiber.Ctx) error {
 
 	return err
 }
-func UpdateRating(c *fiber.Ctx) error {return nil}
+func UpdateRating(c *fiber.Ctx) error {
+	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString("ReqError")
+	}
+	score,err := strconv.Atoi(c.Params("score"))
+	if score < 1 || score > 10 {
+		return c.Status(fiber.StatusBadRequest).SendString("Rating between 1 - 10")
+	}
+	userId,err := primitive.ObjectIDFromHex(tempId)
+	if err != nil{
+		return c.Status(fiber.StatusBadRequest).SendString("Check userId")
+	}
+	err = repo.UpdateRateList(userId,mangaId,score)
+
+	return err
+}

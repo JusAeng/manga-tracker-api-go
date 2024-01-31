@@ -152,15 +152,36 @@ func UpdateOwnerList(userId primitive.ObjectID,mangaId primitive.ObjectID,vol in
 	return nil
 }
 
-func AddMangaVols(userId primitive.ObjectID,mangaId primitive.ObjectID,vols []int) error {
-	collection := db.Client.Database("manga-tracker").Collection("users")
+func UpdateRateList(userId primitive.ObjectID,mangaId primitive.ObjectID,score int) error{
+	if !isMangaExist(mangaId){ return errors.New("No manga exist")}
+	user := getUserInfo(userId)
+	if user.RateList == nil{
+		user.RateList = make(map[string]int)
+	}
+	user.RateList[mangaId.Hex()] = score
+	update := bson.M{
+		"$set": bson.M{
+			"rateList": user.RateList,
+		},
+	}
 
-	var user *models.User
-	err := collection.FindOne(context.TODO(), bson.M{"_id":userId}).Decode(&user)
+	collection := db.Client.Database("manga-tracker").Collection("users")
+	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": userId}, update)
 	if err != nil {
-		log.Fatalln("Find user error:",err)
+		fmt.Println(err)
 		return err
 	}
+
 	return err
-	
+}
+
+func getUserInfo(userId primitive.ObjectID) *models.User {
+    collection := db.Client.Database("manga-tracker").Collection("users")
+    var result *models.User
+    err := collection.FindOne(context.TODO(), bson.M{"_id": userId}).Decode(&result)
+    if err != nil {
+        fmt.Println("User not found")
+        return nil
+    }
+    return result
 }
