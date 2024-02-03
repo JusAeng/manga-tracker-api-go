@@ -12,13 +12,13 @@ import (
 
 var tempId = "5f563a9da793b25a09529123"
 
-type UpdateUserRequest struct {
+type UpdateUserProfileRequest struct {
     Key   string `json:"key"`
     Value string `json:"value"`
 }
 
 func UpdateUserProfile(c *fiber.Ctx) error {
-	req := new(UpdateUserRequest)
+	req := new(UpdateUserProfileRequest)
 	userId, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil{
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
@@ -30,6 +30,9 @@ func UpdateUserProfile(c *fiber.Ctx) error {
 	}
 
 	fmt.Println("handler",req.Key,req.Value)
+	if (req.Key != "name" && req.Key != "image") {
+		return c.Status(fiber.StatusBadRequest).SendString("Not Allow")
+	}
 	err = repo.UpdateUserProfile(userId,req.Key,req.Value)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())

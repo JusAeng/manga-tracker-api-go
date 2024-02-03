@@ -50,10 +50,6 @@ func GetUserProfileById(userId primitive.ObjectID) (*models.User) {
 
 // patch
 func UpdateUserProfile(userId primitive.ObjectID,key string,newValue string) error{
-	fmt.Println("value",key,newValue)
-	if (key != "name" && key != "image") {
-		return errors.New("This key is not allow to change")
-	}
 	collection := db.Client.Database("manga-tracker").Collection("users")
 	filter := bson.M{"_id": userId}
 	update := bson.M{"$set": bson.M{key: newValue}}
