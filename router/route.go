@@ -24,7 +24,7 @@ func Run(app *fiber.App){
 	app.Put("/manga/subscribe",manga_handlers.SubscribeAdding)
 
 	// ===== user =====
-	// app.Patch("/user/:id",user_handlers.UpdateUserProfile)
+	app.Patch("/user/",user_handlers.UpdateUserProfile)
 	app.Put("/user/subscribe/:id",user_handlers.UpdateSubscribe)
 	app.Put("/user/ownerlist/:id/:vol",user_handlers.UpdateOwnerList)
 	app.Put("/user/rating/:id/:score",user_handlers.UpdateRating)
