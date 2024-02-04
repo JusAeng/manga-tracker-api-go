@@ -91,6 +91,7 @@ func SubscribeMangaById(userId primitive.ObjectID,mangaId primitive.ObjectID) er
 	update := bson.M{
 		"$set": bson.M{
 			"subscribeList": user.SubscribeList,
+			"totalScribe": len(user.SubscribeList),
 		},
 	}
 	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": userId}, update)
@@ -121,15 +122,18 @@ func UpdateOwnerList(userId primitive.ObjectID,mangaId primitive.ObjectID,vol in
 		allvols ,exist := user.OwnerList[mangaId.Hex()]
 		if !exist {
 			user.OwnerList[mangaId.Hex()] = vols
+			user.TotalBooks = 1
 		}else{
 			temp := []int{}
 			for _,v := range allvols{
 				if v == vol {
 					vol = 9999
+					user.TotalBooks -= 1
 					continue
 				}else{
 					if vol < v{
 						temp = append(temp, vol)
+						user.TotalBooks += 1
 						vol = 9999
 					}
 					temp = append(temp, v)
@@ -137,6 +141,7 @@ func UpdateOwnerList(userId primitive.ObjectID,mangaId primitive.ObjectID,vol in
 			}
 			if vol < 9999 {
 				temp = append(temp, vol)
+				user.TotalBooks += 1
 			}
 			
 			user.OwnerList[mangaId.Hex()] = temp
@@ -145,6 +150,7 @@ func UpdateOwnerList(userId primitive.ObjectID,mangaId primitive.ObjectID,vol in
 	update := bson.M{
 		"$set": bson.M{
 			"ownerList": user.OwnerList,
+			"totalBooks": user.TotalBooks,
 		},
 	}
 	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": userId}, update)

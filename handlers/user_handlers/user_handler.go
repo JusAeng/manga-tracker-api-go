@@ -19,7 +19,7 @@ type UpdateUserProfileRequest struct {
 
 func UpdateUserProfile(c *fiber.Ctx) error {
 	req := new(UpdateUserProfileRequest)
-	userId, err := primitive.ObjectIDFromHex(c.Params("id"))
+	userId, err := primitive.ObjectIDFromHex(tempId)
 	if err != nil{
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
