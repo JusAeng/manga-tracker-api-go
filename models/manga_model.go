@@ -18,17 +18,17 @@ type Manga struct {
 	Publisher			string				`json:"publisher"`
 	FirstDateJP			string				`json:"firstDateJP"`
 	FirstDateTH			string				`json:"firstDateTH"`
-	Vols				[]int				`json:"vols"`
+	Vols				[]Vol				`json:"vols"`
 	LastVol				int					`json:"lastVol"`
 	Subscribers			int					`json:"subscribers"`
 	Score				float32				`json:"score"`
 	TotalVoters			int 				`json:"totalVoters"`
 }
 
-type Vols struct {
+type Vol struct {
 	ID      		primitive.ObjectID 	`json:"_id" bson:"_id"`
-	Vol 			int					`json:"vol"`
 	MangaID			string 				`json:"mangaId"`
+	Vol 			int					`json:"vol"`
 	Image			string				`json:"image"`
 	PublishDate		string				`json:"publishDate"`
 	TotalOwner		int					`json:"totalOwner"`
