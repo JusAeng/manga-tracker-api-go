@@ -85,6 +85,9 @@ func SubscribeMangaById(userId primitive.ObjectID,mangaId primitive.ObjectID) er
 		}
 		if len(temp) == len(user.SubscribeList){
 			temp = append(temp, mangaId.Hex())
+			UpdateMangaSubscriber(mangaId,1)
+		}else{
+			UpdateMangaSubscriber(mangaId,-1)
 		}
 		user.SubscribeList = temp
 	}
@@ -168,7 +171,13 @@ func UpdateRateList(userId primitive.ObjectID,mangaId primitive.ObjectID,score i
 	if user.RateList == nil{
 		user.RateList = make(map[string]int)
 	}
+	err := UpdateMangaScore(mangaId,score)
+
+
 	user.RateList[mangaId.Hex()] = score
+	if score == 0 {
+		delete(user.RateList,mangaId.Hex())
+	}
 	update := bson.M{
 		"$set": bson.M{
 			"rateList": user.RateList,
@@ -176,7 +185,7 @@ func UpdateRateList(userId primitive.ObjectID,mangaId primitive.ObjectID,score i
 	}
 
 	collection := db.Client.Database("manga-tracker").Collection("users")
-	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": userId}, update)
+	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": userId}, update)
 	if err != nil {
 		fmt.Println(err)
 		return err
