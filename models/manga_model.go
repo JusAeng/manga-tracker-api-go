@@ -22,7 +22,7 @@ type Manga struct {
 	LastVol				int					`json:"lastVol"`
 	Subscribers			int					`json:"subscribers"`
 	Score				float32				`json:"score"`
-	TotalVoter			int					`json:"totalVoters"`
+	TotalVoters			int 				`json:"totalVoters"`
 }
 
 type Vols struct {

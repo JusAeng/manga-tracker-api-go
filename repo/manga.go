@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	// "errors"
 	"fmt"
 	"log"
 
@@ -103,4 +104,53 @@ func DeleteMangaById(id primitive.ObjectID) error {
 // Update
 func UpdateMangaByTitle(manga *models.Manga) (*models.Manga, error) {
 	return manga, nil
+}
+
+// put
+func UpdateMangaSubscriber(mangaId primitive.ObjectID,n int) error {
+	collection := db.Client.Database("manga-tracker").Collection("mangas")
+	var manga models.Manga
+	err := collection.FindOne(context.TODO(), bson.M{"_id":mangaId}).Decode(&manga)
+	if err != nil{
+		return err
+	}
+	update := bson.M{
+		"$set": bson.M{
+			"subscribers": manga.Subscribers + n,
+		},
+	}
+	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": mangaId}, update)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+	
+	return nil
+}
+
+func UpdateMangaScore(mangaId primitive.ObjectID,score int) error {
+	collection := db.Client.Database("manga-tracker").Collection("mangas")
+	var manga models.Manga
+	err := collection.FindOne(context.TODO(), bson.M{"_id":mangaId}).Decode(&manga)
+	if err != nil{
+		return err
+	}
+	if score == 0{
+		manga.TotalVoters -= 1
+	}else{
+		manga.TotalVoters += 1
+	}
+	update := bson.M{
+		"$set": bson.M{
+			"score": (manga.Score+float32(score))/(float32(manga.TotalVoters)),
+			"totalVoters": manga.TotalVoters,
+		},
+	}
+	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": mangaId}, update)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+	
+	return nil
 }
