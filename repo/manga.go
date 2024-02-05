@@ -93,27 +93,29 @@ func AddMangaVol(mangaId primitive.ObjectID,vol models.Vol) (*models.Vol, error)
 	}
 	vol.ID = primitive.NewObjectID()
 	vol.MangaID = manga.ID.Hex()
-	var temp []models.Vol
+	temp := []models.Vol{}
 	if manga.Vols == nil{
-		manga.Vols = []models.Vol{vol}
+		manga.Vols = []models.Vol{}
+		temp = append(temp, vol)
 	}else{
 		for idx,v := range manga.Vols{
 			if v.Vol == vol.Vol{
 				return nil,errors.New("Already Added")
 			}
 			if vol.Vol < v.Vol{
-				temp = append(temp, manga.Vols[:idx]...)
 				temp = append(temp, vol)
 				temp = append(temp, manga.Vols[idx:]...)
 				break
 			} 
+			temp = append(temp, v)
 		}
 	}
 	if len(manga.Vols) == len(temp){
 		temp = append(temp, vol)
 	}
-	manga.LastVol = manga.Vols[len(manga.Vols)-1].Vol
 	manga.Vols = temp
+	manga.LastVol = manga.Vols[len(manga.Vols)-1].Vol
+
 
 	update := bson.M{
 		"$set": bson.M{
