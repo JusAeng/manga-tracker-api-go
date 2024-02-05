@@ -51,10 +51,25 @@ func AddMangaHandler(c *fiber.Ctx) error {
 	}
 	newManga, err := repo.AddManga(manga)
 	if err != nil {
-		return c.Status(fiber.StatusAccepted).SendString("nnai")
+		return c.Status(fiber.StatusBadRequest).SendString("nnai")
 	}
 	log.Print(newManga)
 	return c.JSON(newManga)
+}
+
+func VolumeAdding(c* fiber.Ctx) error {
+	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
+	vol := new(models.Vol)
+	if err := c.BodyParser(vol); err != nil {
+		log.Println("Error parsing request body:", err)
+    	log.Println("Request Body:", c.Body()) // Print the request body for debugging
+		return c.Status(fiber.StatusBadRequest).SendString("requestBody")
+	}
+	newVol, err := repo.AddMangaVol(mangaId,*vol)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return c.JSON(newVol)
 }
 
 // Delete
@@ -75,6 +90,3 @@ func DeleteMangaByTitleHandler(c *fiber.Ctx) error{
 }
 
 // Put
-func VolumeAdding(c* fiber.Ctx) error {return nil}
-func VotingAdding(c* fiber.Ctx) error {return nil}
-func SubscribeAdding(c* fiber.Ctx) error {return nil}

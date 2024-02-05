@@ -2,6 +2,8 @@ package repo
 
 import (
 	"context"
+	"errors"
+
 	// "errors"
 	"fmt"
 	"log"
@@ -80,6 +82,52 @@ func AddManga(manga *models.Manga) (*models.Manga, error) {
 		return manga, err
 	}
 	return manga, nil
+}
+
+func AddMangaVol(mangaId primitive.ObjectID,vol models.Vol) (*models.Vol, error) {
+	var manga models.Manga
+	collection := db.Client.Database("manga-tracker").Collection("mangas")
+	err := collection.FindOne(context.TODO(),bson.M{"_id":mangaId}).Decode(&manga)
+	if err != nil{
+		return nil,err
+	}
+	vol.ID = primitive.NewObjectID()
+	vol.MangaID = manga.ID.Hex()
+	var temp []models.Vol
+	if manga.Vols == nil{
+		manga.Vols = []models.Vol{vol}
+	}else{
+		for idx,v := range manga.Vols{
+			if v.Vol == vol.Vol{
+				return nil,errors.New("Already Added")
+			}
+			if vol.Vol < v.Vol{
+				temp = append(temp, manga.Vols[:idx]...)
+				temp = append(temp, vol)
+				temp = append(temp, manga.Vols[idx:]...)
+				break
+			} 
+		}
+	}
+	if len(manga.Vols) == len(temp){
+		temp = append(temp, vol)
+	}
+	manga.LastVol = manga.Vols[len(manga.Vols)-1].Vol
+	manga.Vols = temp
+
+	update := bson.M{
+		"$set": bson.M{
+			"vols": manga.Vols,
+			"lastVol": manga.LastVol,
+		},
+	}
+	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": mangaId}, update)
+	if err != nil {
+		fmt.Println(err)
+		return nil,err
+	}
+
+	return &vol, nil
 }
 
 // Delete

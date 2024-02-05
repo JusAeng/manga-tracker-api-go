@@ -19,9 +19,7 @@ func Run(app *fiber.App){
 	app.Get("/mangas", manga_handlers.GetMangasHandler)
 	app.Get("/mangas/:id", manga_handlers.GetMangaByIdHandler)
 	app.Get("/mangas/title/:title", manga_handlers.GetMangaByTitleHandler)
-	app.Put("/manga/vol",manga_handlers.VolumeAdding)
-	app.Put("/manga/voting",manga_handlers.VotingAdding)
-	app.Put("/manga/subscribe",manga_handlers.SubscribeAdding)
+	app.Post("/mangas/vols/:id",manga_handlers.VolumeAdding)
 
 	// ===== user =====
 	app.Patch("/user/",user_handlers.UpdateUserProfile)
