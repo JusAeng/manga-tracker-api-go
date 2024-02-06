@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"strings"
+	"time"
 
 	"github.com/JusAeng/manga-tracker-api-go/config"
 	"github.com/JusAeng/manga-tracker-api-go/repo"
 	"github.com/JusAeng/manga-tracker-api-go/service"
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v4"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"fmt"
@@ -159,5 +162,49 @@ func Login(c *fiber.Ctx) error {
 			return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 		}
 	}
-	return c.JSON(user)
+
+	jwttoken := jwt.New(jwt.SigningMethodHS256)
+	claim := jwttoken.Claims.(jwt.MapClaims)
+	claim["userId"] = user.ID.Hex()
+	claim["role"] = "user"
+	claim["exp"] = time.Now().Add(time.Hour * 72).Unix()
+
+	token,err := jwttoken.SignedString([]byte("secret"))
+
+	return c.JSON(fiber.Map{
+		"token":token,
+	})
+}
+
+func AuthMiddleware(c *fiber.Ctx) error {
+	var jwtKey = []byte("secret")
+
+	// Extract the JWT token from the request header
+	authHeader := c.Get("Authorization")
+	if authHeader == "" {
+		return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+	}
+
+	// Check if the Authorization header is formatted correctly
+	parts := strings.Split(authHeader, " ")
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+	}
+
+	// Extract the JWT token from the Authorization header
+	tokenString := parts[1]
+
+	// Parse and validate the JWT token
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		return jwtKey, nil
+	})
+	if err != nil || !token.Valid {
+		return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+	}
+
+	// Set the userID in the context
+	c.Locals("userId", token.Claims.(jwt.MapClaims)["userId"])
+
+	// Call the next handler
+	return c.Next()
 }
