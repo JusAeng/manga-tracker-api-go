@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 
+	"github.com/JusAeng/manga-tracker-api-go/config"
 	"github.com/JusAeng/manga-tracker-api-go/repo"
 	"github.com/JusAeng/manga-tracker-api-go/service"
 	"github.com/gofiber/fiber/v2"
@@ -26,9 +27,13 @@ func GetLineProfileByTokenIdHandler(c *fiber.Ctx) error {
 	// }
 
 	// URL of the API endpoint for the POST request
+	client_id,err := config.GetEnv("LineClientId")
+	if err != nil{
+		return errors.New("LineClientId Fail Load")
+	}
 	profilePayload := url.Values{
 		"id_token":  {tokenId},
-		"client_id": {"2002829031"},
+		"client_id": {client_id},
 	}
 
 	// Create a request with the payload
@@ -80,9 +85,13 @@ type ILineToken struct {
 
 func GetUserFromLineToken(tokenId string) (*LineProfile,error) {
 	// URL of the API endpoint for the POST request
+	client_id,err := config.GetEnv("LineClientId")
+	if err != nil{
+		return nil,errors.New("LineClientId Fail Load")
+	}
 	profilePayload := url.Values{
 		"id_token":  {tokenId},
-		"client_id": {"2002829031"},
+		"client_id": {client_id},
 	}
 
 	// Create a request with the payload
