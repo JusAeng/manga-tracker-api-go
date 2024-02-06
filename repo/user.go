@@ -109,7 +109,7 @@ func SubscribeMangaById(userId primitive.ObjectID,mangaId primitive.ObjectID) er
 	update := bson.M{
 		"$set": bson.M{
 			"subscribeList": user.SubscribeList,
-			"totalScribe": len(user.SubscribeList),
+			"totalSubScribe": len(user.SubscribeList),
 		},
 	}
 	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": userId}, update)
