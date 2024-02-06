@@ -144,11 +144,11 @@ func Login(c *fiber.Ctx) error {
 		return nil
 	}
 	user := repo.GetUserProfileById(userId)
-	// if user == nil{
-	// 	user,err = repo.RegisterUser(userId,lineProfile.Name,lineProfile.Picture)
-	// 	if err != nil{
-	// 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
-	// 	}
-	// }
+	if user == nil{
+		user,err = repo.RegisterUser(userId,lineProfile.Name,lineProfile.Picture)
+		if err != nil{
+			return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+		}
+	}
 	return c.JSON(user)
 }
