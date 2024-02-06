@@ -101,6 +101,11 @@ func GetUserIdFromLineToken(tokenId string) (*LineProfile,error) {
 	}
 	defer resp.Body.Close()
 
+	// Check the response status
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New("Token Id invalid")
+	}
+
 	// Read the response body
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -112,12 +117,8 @@ func GetUserIdFromLineToken(tokenId string) (*LineProfile,error) {
 		return nil,err
 	}
 
-	// Check the response status
-	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New("Token Id invalid")
-	}
-
-	return &responseBody,nil
+	// return &responseBody,nil
+	return nil,nil
 }
 
 func Login(c *fiber.Ctx) error {
@@ -128,12 +129,11 @@ func Login(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 
-
 	lineProfile,err := GetUserIdFromLineToken(req.Token)
-	hexId := lineProfile.Sub
 	if err != nil{
 		return c.SendStatus(fiber.StatusBadRequest)
 	}
+	hexId := lineProfile.Sub
 	encryptHexId,err := service.EncryptHexId(hexId)
 	if err != nil{
 		fmt.Println(err)
