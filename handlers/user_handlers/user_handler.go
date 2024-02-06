@@ -42,7 +42,7 @@ func UpdateUserProfile(c *fiber.Ctx) error {
 
 func UpdateSubscribe(c *fiber.Ctx) error {
 	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
-	userId,err := primitive.ObjectIDFromHex(tempId)
+	userId,err := primitive.ObjectIDFromHex(c.Locals("userId").(string))
 	if err != nil {
 		fmt.Println("Convert primitiveID from hex error")
 		return err
