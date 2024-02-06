@@ -19,8 +19,24 @@ func CreateUser(user *models.User) (*models.User, error) {
 		log.Printf("Couldn't create user : %v", err)
 		return user, err
 	}
-
 	return user, nil
+}
+func RegisterUser(userId primitive.ObjectID,name string,picture string) (*models.User, error){
+	collection := db.Client.Database("manga-tracker").Collection("users")
+	var user models.User
+	user.ID = userId
+	user.Name = name
+	user.Image = picture
+	insertResult,err := collection.InsertOne(context.TODO(),user)
+	if err != nil{
+		return nil,err
+	}
+	err = collection.FindOne(context.Background(), bson.M{"_id": insertResult.InsertedID}).Decode(&user)
+	if err != nil {
+		return nil,err
+	}
+	
+	return &user,nil
 }
 
 // delete
@@ -42,7 +58,6 @@ func GetUserProfileById(userId primitive.ObjectID) (*models.User) {
 	collection := db.Client.Database("manga-tracker").Collection("users")
 	err := collection.FindOne(context.TODO(), bson.M{"_id": userId}).Decode(&userProfile)
 	if err != nil {
-		log.Fatal(err)
 		return nil
 	}
 	return userProfile

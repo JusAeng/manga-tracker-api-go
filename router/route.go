@@ -14,6 +14,7 @@ func Run(app *fiber.App){
 	app.Post("/foo/user",handlers.FooAddUser)
 	app.Get("/foo/user/:id",handlers.FooLogin)
 	app.Delete("/foo/user/:id",handlers.FooDeleteUser)
+	app.Post("/foo/auth/:id",auth_handlers.GetLineProfileByTokenIdHandler)
 
 	// ===== manga =====
 	app.Get("/mangas", manga_handlers.GetMangasHandler)
@@ -28,7 +29,7 @@ func Run(app *fiber.App){
 	app.Put("/user/rating/:id/:score",user_handlers.UpdateRating)
 
 	// ===== Auth =====
-	app.Get("/auth/:id",auth_handlers.Login)
+	app.Post("/auth/",auth_handlers.Login)
 
 	// ====== Admin =======
 	app.Delete("/admin/user/:id",admin_handlers.DeleteUserById)
