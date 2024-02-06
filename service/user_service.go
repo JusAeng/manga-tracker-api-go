@@ -3,19 +3,16 @@ package service
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strconv"
 
-	"github.com/joho/godotenv"
+	"github.com/JusAeng/manga-tracker-api-go/config"
 )
 
 func EncryptHexId(subIdLine string) (string,error){
-	err := godotenv.Load()
-	if err != nil{
-		fmt.Println("Can't Load Env")
-		return "",err
+	encryptionKey,err := config.GetEnv("EncryptionKey")
+	if err != nil {
+		return "",errors.New("EncryptionKey Failed")
 	}
-	encryptionKey := os.Getenv("EncryptionKey")
 
 	insertedHexId := ""
 	subIdLine = subIdLine[1:]
