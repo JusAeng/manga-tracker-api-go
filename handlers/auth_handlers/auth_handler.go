@@ -7,9 +7,9 @@ import (
 	"log"
 
 	"github.com/JusAeng/manga-tracker-api-go/repo"
+	"github.com/JusAeng/manga-tracker-api-go/service"
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"golang.org/x/crypto/bcrypt"
 
 	"fmt"
 	"io/ioutil"
@@ -134,14 +134,13 @@ func Login(c *fiber.Ctx) error {
 	if err != nil{
 		return c.SendStatus(fiber.StatusBadRequest)
 	}
-	hashHexId,err := bcrypt.GenerateFromPassword([]byte(hexId), bcrypt.DefaultCost)
+	encryptHexId,err := service.EncryptHexId(hexId)
 	if err != nil{
 		fmt.Println(err)
 	}
-	hashHexIdString := string(hashHexId)
 
 	// userId, err := primitive.ObjectIDFromHex("5f563a9da793b25a09529123")
-	userId, err := primitive.ObjectIDFromHex(hashHexIdString[:24])
+	userId, err := primitive.ObjectIDFromHex(encryptHexId[:24])
 	if err != nil{
 		return nil
 	}
