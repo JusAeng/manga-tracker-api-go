@@ -78,7 +78,7 @@ type ILineToken struct {
 	Token string `json:"token"`
 }
 
-func GetUserIdFromLineToken(tokenId string) (*LineProfile,error) {
+func GetUserFromLineToken(tokenId string) (*LineProfile,error) {
 	// URL of the API endpoint for the POST request
 	profilePayload := url.Values{
 		"id_token":  {tokenId},
@@ -129,7 +129,7 @@ func Login(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 
-	lineProfile,err := GetUserIdFromLineToken(req.Token)
+	lineProfile,err := GetUserFromLineToken(req.Token)
 	if err != nil{
 		return c.SendStatus(fiber.StatusBadRequest)
 	}
