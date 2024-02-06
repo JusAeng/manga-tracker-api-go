@@ -117,8 +117,7 @@ func GetUserFromLineToken(tokenId string) (*LineProfile,error) {
 		return nil,err
 	}
 
-	// return &responseBody,nil
-	return nil,nil
+	return &responseBody,nil
 }
 
 func Login(c *fiber.Ctx) error {
@@ -137,10 +136,10 @@ func Login(c *fiber.Ctx) error {
 	encryptHexId,err := service.EncryptHexId(hexId)
 	if err != nil{
 		fmt.Println(err)
+		return c.SendStatus(fiber.StatusBadRequest)
 	}
 
-	// userId, err := primitive.ObjectIDFromHex("5f563a9da793b25a09529123")
-	userId, err := primitive.ObjectIDFromHex(encryptHexId[:24])
+	userId, err := primitive.ObjectIDFromHex(encryptHexId)
 	if err != nil{
 		return nil
 	}
