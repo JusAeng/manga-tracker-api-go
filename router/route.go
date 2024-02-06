@@ -7,9 +7,20 @@ import (
 	"github.com/JusAeng/manga-tracker-api-go/handlers/manga_handlers"
 	"github.com/JusAeng/manga-tracker-api-go/handlers/user_handlers"
 	"github.com/gofiber/fiber/v2"
+	jwtware "github.com/gofiber/jwt/v2"
+	// "github.com/golang-jwt/jwt/v4"
 )
 
 func Run(app *fiber.App){
+	// ===== Auth =====
+	app.Post("/auth/",auth_handlers.Login)
+
+	app.Use(jwtware.New(jwtware.Config{
+		SigningKey: []byte("secret"),
+	}))
+
+	app.Use(auth_handlers.AuthMiddleware)
+
 	// ===== foo =====
 	app.Post("/foo/user",handlers.FooAddUser)
 	app.Get("/foo/user/:id",handlers.FooLogin)
@@ -28,8 +39,6 @@ func Run(app *fiber.App){
 	app.Put("/user/ownerlist/:id/:vol",user_handlers.UpdateOwnerList)
 	app.Put("/user/rating/:id/:score",user_handlers.UpdateRating)
 
-	// ===== Auth =====
-	app.Post("/auth/",auth_handlers.Login)
 
 	// ====== Admin =======
 	app.Delete("/admin/user/:id",admin_handlers.DeleteUserById)
