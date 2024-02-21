@@ -3,25 +3,50 @@ package handlers
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/JusAeng/manga-tracker-api-go/models"
 	"github.com/JusAeng/manga-tracker-api-go/repo"
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v4"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+type AdminLoginType struct {
+	Username	string	`json:"username"`
+	Password	string	`json:"password"`
+}
+
 func FooLogin(c *fiber.Ctx) error {
-	sub := "5f563a9da793b25a09529123"
-	hashSub := sub+""
-	
-	fmt.Println(hashSub)
-	objectID, err := primitive.ObjectIDFromHex(hashSub)
-	if err != nil{
-		return nil
+	admin := new(AdminLoginType)
+	if err := c.BodyParser(admin); err != nil{
+		return c.Status(fiber.StatusBadRequest).SendString("Form invalid!")
 	}
-	userProfile := repo.GetUserProfileById(objectID)
-	
-	return c.JSON(userProfile)
+	if admin.Username != "admin1" || admin.Password != "admin"{
+		return c.Status(fiber.StatusUnauthorized).SendString("Not found this admin!")
+	}
+	jwttoken := jwt.New(jwt.SigningMethodHS256)
+	claim := jwttoken.Claims.(jwt.MapClaims)
+	claim["username"] = "admin"
+	claim["role"] = "admin"
+	claim["exp"] = time.Now().Add(time.Hour * 2).Unix()
+
+	token,err := jwttoken.SignedString([]byte("secret"))
+	c.Cookie(&fiber.Cookie{
+		Name: "token",
+		Value: token,
+		Expires: time.Now().Add(time.Hour * 2),
+		HTTPOnly: true,
+	})
+
+	if err != nil {
+		fmt.Println("not send token")
+		return err
+	}
+	fmt.Println("token",token)
+	return c.JSON(fiber.Map{
+		"token":token,
+	})
 }
 
 func FooAddUser(c *fiber.Ctx) error {
