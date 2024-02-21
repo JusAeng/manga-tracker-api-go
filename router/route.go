@@ -7,17 +7,18 @@ import (
 	"github.com/JusAeng/manga-tracker-api-go/handlers/manga_handlers"
 	"github.com/JusAeng/manga-tracker-api-go/handlers/user_handlers"
 	"github.com/gofiber/fiber/v2"
-	jwtware "github.com/gofiber/jwt/v2"
+	// jwtware "github.com/gofiber/jwt/v2"
 	// "github.com/golang-jwt/jwt/v4"
 )
 
 func Run(app *fiber.App){
 	// ===== Auth =====
+	app.Post("/admin",handlers.FooLogin)
 	app.Post("/auth/",auth_handlers.Login)
 
-	app.Use(jwtware.New(jwtware.Config{
-		SigningKey: []byte("secret"),
-	}))
+	// app.Use(jwtware.New(jwtware.Config{
+	// 	SigningKey: []byte("secret"),
+	// }))
 
 	app.Use(auth_handlers.AuthMiddleware)
 
@@ -32,6 +33,7 @@ func Run(app *fiber.App){
 	app.Get("/mangas/:id", manga_handlers.GetMangaByIdHandler)
 	app.Get("/mangas/title/:title", manga_handlers.GetMangaByTitleHandler)
 	app.Post("/mangas/vols/:id",manga_handlers.VolumeAdding)
+	// app.Delete("/mangas/allvols/:id",manga_handlers.VolumeDeleteAll)
 
 	// ===== user =====
 	app.Patch("/user/",user_handlers.UpdateUserProfile)
