@@ -72,6 +72,18 @@ func VolumeAdding(c* fiber.Ctx) error {
 	return c.JSON(newVol)
 }
 
+func VolumeDeleteAll(c* fiber.Ctx) error {
+	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
+	if err != nil{
+		return err
+	}
+	err = repo.DeleteAllVolsById(mangaId)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return nil
+}
+
 // Delete
 func DeleteMangaByTitleHandler(c *fiber.Ctx) error{
 	encodedTitle := c.Params("title")
