@@ -7,28 +7,26 @@ import (
 type Manga struct {
 	ID      			primitive.ObjectID 	`json:"_id" bson:"_id"`
 	Title   			string  			`json:"title"`
-	OtherTitle			[]string			`json:"otherTitles"`
+	OtherTitle			[]string			`json:"otherTitles" bson:"otherTitles"`
 	Author				string				`json:"author"`
-	Drawer				string				`json:"drawer"`
-	OtherParticipate	[]string			`json:"otherParticipate"`
+	OtherParticipate	[]string			`json:"otherParticipate" bson:"otherParticipate"`
 	Genre				string				`json:"genre"`
-	OtherGeres			[]string			`json:"otherGenres"`
+	OtherGeres			[]string			`json:"otherGenres" bson:"otherGenres"`
 	Image				string				`json:"image"`
 	Introduction		string				`json:"introduction"`
 	Publisher			string				`json:"publisher"`
-	FirstDateJP			string				`json:"firstDateJP"`
-	FirstDateTH			string				`json:"firstDateTH"`
-	Vols				[]Vol				`json:"vols"`
-	LastVol				int					`json:"lastVol"`
+	FirstDateJP			string				`json:"firstDateJP" bson:"firstDateJP"`
+	FirstDateTH			string				`json:"firstDateTH" bson:"firstDateTH"`
+	Vols				map[string]Vol		`json:"vols"`
+	LastVol				string				`json:"lastVol" bson:"lastVol"`
 	Subscribers			int					`json:"subscribers"`
 	Score				float32				`json:"score"`
-	TotalVoters			int 				`json:"totalVoters"`
+	TotalVoters			int 				`json:"totalVoters" bson:"totalVoters"`
 }
 
 type Vol struct {
-	ID      		primitive.ObjectID 	`json:"_id" bson:"_id"`
 	MangaID			string 				`json:"mangaId"`
-	Vol 			int					`json:"vol"`
+	Vol 			string				`json:"vol"`
 	Image			string				`json:"image"`
 	PublishDate		string				`json:"publishDate"`
 	TotalOwner		int					`json:"totalOwner"`
