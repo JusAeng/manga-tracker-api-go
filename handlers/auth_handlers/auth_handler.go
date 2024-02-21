@@ -177,6 +177,7 @@ func Login(c *fiber.Ctx) error {
 }
 
 func AuthMiddleware(c *fiber.Ctx) error {
+        
 	var jwtKey = []byte("secret")
 
 	// Extract the JWT token from the request header
