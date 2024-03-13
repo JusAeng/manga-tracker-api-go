@@ -17,7 +17,7 @@ func EncryptHexId(subIdLine string) (string,error){
 	insertedHexId := ""
 	subIdLine = subIdLine[1:]
 
-	// fill 40 char
+	// fill 40 char by added ? every 3 char
 	ce := string(encryptionKey[0])
 	added := 0
 	if len(subIdLine) < 40{
@@ -34,6 +34,8 @@ func EncryptHexId(subIdLine string) (string,error){
 			insertedHexId += string(subIdLine[i])
 		}
 	}
+
+	// now we get hexId as 40 chars -> to fill 48 chars by rotated ? step forward
 	fullHexId := insertedHexId
 	if len(insertedHexId) < 48 {
 		for i:=0; i< 48 - len(insertedHexId); i++ {
@@ -50,6 +52,8 @@ func EncryptHexId(subIdLine string) (string,error){
 	if len(fullHexId) != 48 {
 		return "",errors.New("Hex Id is invalid length")
 	}
+
+	// now we going to process by half it !
 	halfHexId := ""
 	for i:=0; i<24; i++{
 		s,err := meanHex(string(fullHexId[i]),string(fullHexId[24+i]))
