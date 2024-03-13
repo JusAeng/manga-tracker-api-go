@@ -2,10 +2,13 @@ package db
 
 import (
 	"context"
+	"fmt"
+
 	// "fmt"
 	"log"
 	// "time"
 
+	"github.com/JusAeng/manga-tracker-api-go/config"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -18,7 +21,16 @@ func Connect() {
 	// defer cancel()
 
 	// client, err := mongo.NewClient(options.Client().ApplyURI("mongodb+srv://planc:VQjaiVg24ZUeVTR7@cluster0.ntxuynn.mongodb.net/?retryWrites=true&w=majority"))
-	clientOptions := options.Client().ApplyURI("mongodb+srv://planc:N9jFmXbTS8OrBlKv@cluster0.ntxuynn.mongodb.net/?retryWrites=true&w=majority")
+	DB_User,err := config.GetEnv("DB_USER")
+	if err != nil{
+		log.Fatalf("Fail to load env")
+	}
+	DB_Pass,err := config.GetEnv("DB_PASS")
+	if err != nil{
+		log.Fatalf("Fail to load env")
+	}
+	dbConnectionString := fmt.Sprintf("mongodb+srv://%s:%s@cluster0.ntxuynn.mongodb.net/?retryWrites=true&w=majority", DB_User, DB_Pass)
+	clientOptions := options.Client().ApplyURI(dbConnectionString)
 	client, err := mongo.Connect(context.TODO(), clientOptions)
 	if err != nil {
 		log.Fatalf("Failed to connect to cluster: %v", err)
