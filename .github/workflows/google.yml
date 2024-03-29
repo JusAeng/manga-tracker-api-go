@@ -44,7 +44,7 @@ jobs:
 
       - name: Deploy to Cloud Run
         id: deploy
-        run: gcloud run deploy ${{ env.SERVICE }} --image ${{ env.GAR_LOCATION }}/mgt-backend-deploy:latest
+        run: gcloud run deploy ${{ env.SERVICE }} --region ${{env.REGION}} --image ${{ env.GAR_LOCATION }}/mgt-backend-deploy:latest
 
         # uses: google-github-actions/deploy-cloudrun@v2
         # with:
