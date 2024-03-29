@@ -14,7 +14,7 @@ jobs:
     env:
       IMAGE_NAME: mgt-backend
       PROJECT_ID: totemic-life-417117
-    
+
     steps:
       - name: code checkout
         uses: actions/checkout@v2
@@ -31,4 +31,8 @@ jobs:
       - name: Configure Docker Client
         run: |-
           gcloud auth configur-docker --quiet
-          
+
+      - name: Push Docker Image to Container Registry (GCR)
+        run: |-
+          docker tag $IMAGE_NAME:latest gcr.io/$PROJECT_ID/$IMAGE_NAME:latest
+          docker push gcr.io/$PROJECT_ID/$IMAGE_NAME:latest
