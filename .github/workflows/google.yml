@@ -39,8 +39,8 @@ jobs:
 
       - name: Build and Push Container
         run: |-
-          docker build -t "${{ env.GAR_LOCATION }}/mgt-backend-deploy:latest" ./
-          docker push "${{ env.GAR_LOCATION }}/mgt-backend-deploy:latest"
+          docker build -t "${{ env.GAR_LOCATION }}:mgt-backend-deploy" ./
+          docker push "${{ env.GAR_LOCATION }}:mgt-backend-deploy"
 
       - name: Deploy to Cloud Run
         id: deploy
