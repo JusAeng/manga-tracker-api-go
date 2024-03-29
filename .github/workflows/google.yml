@@ -41,6 +41,7 @@ jobs:
         run: |-
           docker build -t "${{ env.GAR_LOCATION }}/mgt-backend-deploy" ./
           docker push "${{ env.GAR_LOCATION }}/mgt-backend-deploy"
+          pwd
 
       - name: Deploy to Cloud Run
         id: deploy
