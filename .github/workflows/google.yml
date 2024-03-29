@@ -6,7 +6,7 @@ on:
 
 env:
   PROJECT_ID: totemic-life-417117 # TODO: update Google Cloud project id
-  GAR_LOCATION: asia-southeast1-docker.pkg.dev/totemic-life-417117/mgt-backend/ # TODO: update Artifact Registry location
+  GAR_LOCATION: asia-southeast1-docker.pkg.dev/totemic-life-417117/mgt-backend # TODO: update Artifact Registry location
   SERVICE: mgt-backend-deploy # TODO: update Cloud Run service name
   REGION: asia-southeast1 # TODO: update Cloud Run service region
 
