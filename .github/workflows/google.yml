@@ -43,6 +43,7 @@ jobs:
           && echo "password=password" >> .env \
           && echo "project_id=1" >> .env
           ls -la
+          cat .env
 
       # - name: Build and Push Container
       #   run: |-
