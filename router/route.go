@@ -15,9 +15,7 @@ func Run(app *fiber.App){
 	// ===== Auth =====
 	app.Post("/admin",handlers.FooLogin)
 	app.Post("/auth/",auth_handlers.Login)
-	app.Get("/hello",func(c fiber.Ctx) error {
-		return c.SendString("Hello")
-	})
+    app.Get("/hello", handlers.FooHello)
 
 	// app.Use(jwtware.New(jwtware.Config{
 	// 	SigningKey: []byte("secret"),

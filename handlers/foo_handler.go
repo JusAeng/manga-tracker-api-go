@@ -17,6 +17,10 @@ type AdminLoginType struct {
 	Password	string	`json:"password"`
 }
 
+func FooHello(c *fiber.Ctx) error {
+	return c.SendString("Hello")
+}
+
 func FooLogin(c *fiber.Ctx) error {
 	admin := new(AdminLoginType)
 	if err := c.BodyParser(admin); err != nil{
