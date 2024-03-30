@@ -39,9 +39,10 @@ jobs:
 
       - name: Create .env
         run: |-
-          echo "username=user" > .env \
-          && echo "password=password" >> .env \
-          && echo "project_id=1" >> .env
+          echo "ENCRYPTIONKEY=${{secrets.ENCRYPTIONKEY}}" > .env \
+          && echo "LINECLIENTID=${{secrets.LINECLIENTID}}" >> .env \
+          && echo "DB_USER=${{secrets.DB_USER}}" >> .env \
+          && echo "DB_PASS=${{secrets.DB_PASS}}" >> .env \
           ls -la
           cat .env
 
