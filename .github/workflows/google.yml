@@ -38,7 +38,11 @@ jobs:
           password: ${{ secrets.SERVICE_ACCOUNT_KEY }}
 
       - name: Create .env
-        run: ls
+        run: |-
+          echo "username=user" > .env \
+          && echo "password=password" >> .env \
+          && echo "project_id=1" >> .env
+          ls
 
       # - name: Build and Push Container
       #   run: |-
