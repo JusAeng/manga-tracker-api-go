@@ -69,7 +69,7 @@ func GetLineProfileByTokenIdHandler(c *fiber.Ctx) error {
 
 	// Check the response status
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Error: %s", string(body))
+		return fmt.Errorf("error: %s", string(body))
 	}
 
 	// Return the parsed response body as JSON
@@ -115,7 +115,7 @@ func GetUserFromLineToken(tokenId string) (*LineProfile,error) {
 
 	// Check the response status
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New("Token Id invalid")
+		return nil, errors.New("token Id invalid")
 	}
 
 	// Read the response body
@@ -169,7 +169,14 @@ func Login(c *fiber.Ctx) error {
 	claim["role"] = "user"
 	claim["exp"] = time.Now().Add(time.Hour * 72).Unix()
 
-	token,err := jwttoken.SignedString([]byte("secret"))
+	JWTSignedString,err := config.GetEnv("JWT_SIGNED_STRING")
+	if err != nil {
+		return errors.New("no env for JWT_SIGNED_STRING")
+	}
+	token,err := jwttoken.SignedString([]byte(JWTSignedString))
+	if err != nil {
+		return errors.New("token Id invalid")
+	}
 
 	return c.JSON(fiber.Map{
 		"token":token,
@@ -177,8 +184,11 @@ func Login(c *fiber.Ctx) error {
 }
 
 func AuthMiddleware(c *fiber.Ctx) error {
-        
-	var jwtKey = []byte("secret")
+	JWTSignedString,err := config.GetEnv("JWT_SIGNED_STRING")
+	if err != nil {
+		return errors.New("no env for JWT_SIGNED_STRING")
+	}
+	var jwtKey = []byte(JWTSignedString)
 
 	// Extract the JWT token from the request header
 	authHeader := c.Get("Authorization")
@@ -192,9 +202,7 @@ func AuthMiddleware(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 	}
 
-	// Extract the JWT token from the Authorization header
 	tokenString := parts[1]
-
 	// Parse and validate the JWT token
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		return jwtKey, nil
