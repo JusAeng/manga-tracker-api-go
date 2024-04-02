@@ -16,65 +16,10 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 )
-
-func GetLineProfileByTokenIdHandler(c *fiber.Ctx) error {
-	tokenId := c.Params("id")
-
-	// manga, err := repo.GetMangaById(mangaId)
-	// if err != nil {
-	// 	return c.Status(fiber.StatusBadRequest).SendString(err.Error())
-	// }
-
-	// URL of the API endpoint for the POST request
-	client_id,err := config.GetEnv("LineClientId")
-	if err != nil{
-		return errors.New("LineClientId Fail Load")
-	}
-	profilePayload := url.Values{
-		"id_token":  {tokenId},
-		"client_id": {client_id},
-	}
-
-	// Create a request with the payload
-	req, err := http.NewRequest("POST", "https://api.line.me/oauth2/v2.1/verify", bytes.NewBufferString(profilePayload.Encode()))
-	if err != nil {
-		return err
-	}
-
-	// Set headers
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	// Make the request
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	// Read the response body
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	// Parse the response body into a map[string]interface{}
-	var responseBody map[string]interface{}
-	if err := json.Unmarshal(body, &responseBody); err != nil {
-		return err
-	}
-
-	// Check the response status
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Error: %s", string(body))
-	}
-
-	// Return the parsed response body as JSON
-	return c.JSON(responseBody)
-}
 
 type LineProfile struct {
 	Name 		string 	`json:"name"`
@@ -86,7 +31,7 @@ type ILineToken struct {
 	Token string `json:"token"`
 }
 
-func GetUserFromLineToken(tokenId string) (*LineProfile,error) {
+func GetProfileFromLineAPI(tokenId string) (*LineProfile,error) {
 	// URL of the API endpoint for the POST request
 	client_id,err := config.GetEnv("LineClientId")
 	if err != nil{
@@ -115,11 +60,11 @@ func GetUserFromLineToken(tokenId string) (*LineProfile,error) {
 
 	// Check the response status
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New("Token Id invalid")
+		return nil, errors.New("token Id invalid")
 	}
 
 	// Read the response body
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil,err
 	}
@@ -140,7 +85,7 @@ func Login(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 
-	lineProfile,err := GetUserFromLineToken(req.Token)
+	lineProfile,err := GetProfileFromLineAPI(req.Token)
 	if err != nil{
 		return c.SendStatus(fiber.StatusBadRequest)
 	}
@@ -167,18 +112,82 @@ func Login(c *fiber.Ctx) error {
 	claim := jwttoken.Claims.(jwt.MapClaims)
 	claim["userId"] = user.ID.Hex()
 	claim["role"] = "user"
-	claim["exp"] = time.Now().Add(time.Hour * 72).Unix()
+	claim["exp"] = time.Now().Add(time.Hour * 6).Unix()
 
-	token,err := jwttoken.SignedString([]byte("secret"))
+	JWTSignedString,err := config.GetEnv("JWT_SIGNED_STRING")
+	if err != nil {
+		return errors.New("no env for JWT_SIGNED_STRING")
+	}
+	token,err := jwttoken.SignedString([]byte(JWTSignedString))
+	c.Cookie(&fiber.Cookie{
+		Name: "token",
+		Value: token,
+		Expires: time.Now().Add(time.Hour * 6),
+		HTTPOnly: true,
+	})
+	if err != nil {
+		return errors.New("token Id invalid")
+	}
 
 	return c.JSON(fiber.Map{
 		"token":token,
 	})
 }
 
-func AuthMiddleware(c *fiber.Ctx) error {
-        
-	var jwtKey = []byte("secret")
+type AdminLoginType struct {
+	Username	string	`json:"username"`
+	Password	string	`json:"password"`
+}
+
+func AdminLogin(c *fiber.Ctx) error {
+	admin := new(AdminLoginType)
+	if err := c.BodyParser(admin); err != nil{
+		return c.Status(fiber.StatusBadRequest).SendString("Form invalid!")
+	}
+	if admin.Username != "admin1" || admin.Password != "admin"{
+		return c.Status(fiber.StatusUnauthorized).SendString("Not found this admin!")
+	}
+	jwttoken := jwt.New(jwt.SigningMethodHS256)
+	claim := jwttoken.Claims.(jwt.MapClaims)
+	claim["username"] = "admin"
+	claim["role"] = "admin"
+	claim["exp"] = time.Now().Add(time.Hour * 6).Unix()
+
+	JWTSignedString,err := config.GetEnv("JWT_SIGNED_STRING")
+	if err != nil {
+		return errors.New("no env for JWT_SIGNED_STRING")
+	}
+	token,err := jwttoken.SignedString([]byte(JWTSignedString))
+	c.Cookie(&fiber.Cookie{
+		Name: "token",
+		Value: token,
+		Expires: time.Now().Add(time.Hour * 6),
+		HTTPOnly: true,
+	})
+
+	if err != nil {
+		fmt.Println("not send token")
+		return err
+	}
+	fmt.Println("token",token)
+	return c.JSON(fiber.Map{
+		"token":token,
+	})
+}
+
+func CheckAdmin(c *fiber.Ctx) error {
+	if c.Locals("role").(string) != "admin" {
+		return c.Status(fiber.StatusUnauthorized).SendString("no permission")
+	}
+	return c.Next()
+}
+
+func JWTMiddleware(c *fiber.Ctx) error {
+	JWTSignedString,err := config.GetEnv("JWT_SIGNED_STRING")
+	if err != nil {
+		return errors.New("no env for JWT_SIGNED_STRING")
+	}
+	var jwtKey = []byte(JWTSignedString)
 
 	// Extract the JWT token from the request header
 	authHeader := c.Get("Authorization")
@@ -192,9 +201,7 @@ func AuthMiddleware(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 	}
 
-	// Extract the JWT token from the Authorization header
 	tokenString := parts[1]
-
 	// Parse and validate the JWT token
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		return jwtKey, nil
@@ -203,8 +210,9 @@ func AuthMiddleware(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 	}
 
-	// Set the userID in the context
+	// Set the userID,role in the context
 	c.Locals("userId", token.Claims.(jwt.MapClaims)["userId"])
+	c.Locals("role", token.Claims.(jwt.MapClaims)["role"])
 
 	// Call the next handler
 	return c.Next()

@@ -1,83 +1,68 @@
 package handlers
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
-	"log"
-	"time"
+	"io"
+	"net/http"
+	"net/url"
 
-	"github.com/JusAeng/manga-tracker-api-go/models"
-	"github.com/JusAeng/manga-tracker-api-go/repo"
+	"github.com/JusAeng/manga-tracker-api-go/config"
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt/v4"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
-
-type AdminLoginType struct {
-	Username	string	`json:"username"`
-	Password	string	`json:"password"`
-}
 
 func FooHello(c *fiber.Ctx) error {
 	return c.SendString("Hello")
 }
 
-func FooLogin(c *fiber.Ctx) error {
-	admin := new(AdminLoginType)
-	if err := c.BodyParser(admin); err != nil{
-		return c.Status(fiber.StatusBadRequest).SendString("Form invalid!")
-	}
-	if admin.Username != "admin1" || admin.Password != "admin"{
-		return c.Status(fiber.StatusUnauthorized).SendString("Not found this admin!")
-	}
-	jwttoken := jwt.New(jwt.SigningMethodHS256)
-	claim := jwttoken.Claims.(jwt.MapClaims)
-	claim["username"] = "admin"
-	claim["role"] = "admin"
-	claim["exp"] = time.Now().Add(time.Hour * 2).Unix()
+func FooCheckLineProfileWithLineToken(c *fiber.Ctx) error {
+	tokenId := c.Params("id")
 
-	token,err := jwttoken.SignedString([]byte("secret"))
-	c.Cookie(&fiber.Cookie{
-		Name: "token",
-		Value: token,
-		Expires: time.Now().Add(time.Hour * 2),
-		HTTPOnly: true,
-	})
+	// URL of the API endpoint for the POST request
+	client_id,err := config.GetEnv("LineClientId")
+	if err != nil{
+		return errors.New("LineClientId Fail Load")
+	}
+	profilePayload := url.Values{
+		"id_token":  {tokenId},
+		"client_id": {client_id},
+	}
 
+	// Create a request with the payload
+	req, err := http.NewRequest("POST", "https://api.line.me/oauth2/v2.1/verify", bytes.NewBufferString(profilePayload.Encode()))
 	if err != nil {
-		fmt.Println("not send token")
 		return err
 	}
-	fmt.Println("token",token)
-	return c.JSON(fiber.Map{
-		"token":token,
-	})
-}
 
-func FooAddUser(c *fiber.Ctx) error {
-	user := new(models.User)
+	// Set headers
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	if err := c.BodyParser(user); err != nil {
-		log.Println("Error parsing request body:", err)
-    	log.Println("Request Body:", c.Body()) // Print the request body for debugging
-		return c.Status(fiber.StatusBadRequest).SendString("nani")
-	}
-	newUser, err := repo.CreateUser(user)
+	// Make the request
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return c.Status(fiber.StatusAccepted).SendString("nnai")
+		return err
 	}
+	defer resp.Body.Close()
 
-	return c.JSON(newUser)
-}
-
-func FooDeleteUser(c *fiber.Ctx) error {
-	userId := c.Params("id")
-	objectID, err := primitive.ObjectIDFromHex(userId)
-	if err != nil{
-		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
-	}
-	err = repo.DeleteUserById(objectID)
+	// Read the response body
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+		return err
 	}
-	return c.Status(fiber.StatusAccepted).SendString(userId)
+
+	// Parse the response body into a map[string]interface{}
+	var responseBody map[string]interface{}
+	if err := json.Unmarshal(body, &responseBody); err != nil {
+		return err
+	}
+
+	// Check the response status
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("error: %s", string(body))
+	}
+
+	// Return the parsed response body as JSON
+	return c.JSON(responseBody)
 }
