@@ -42,7 +42,8 @@ jobs:
           echo "ENCRYPTIONKEY=${{secrets.ENCRYPTIONKEY}}" > .env \
           && echo "LINECLIENTID=${{secrets.LINECLIENTID}}" >> .env \
           && echo "DB_USER=${{secrets.DB_USER}}" >> .env \
-          && echo "DB_PASS=${{secrets.DB_PASS}}" >> .env
+          && echo "DB_PASS=${{secrets.DB_PASS}}" >> .env \
+          && echo "JWT_SIGNED_STRING=${{secrets.JWT_SIGNED_STRING}}" >> .env
 
       - name: Build and Push Container
         run: |-
