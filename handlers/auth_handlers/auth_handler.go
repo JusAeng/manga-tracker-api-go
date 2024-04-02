@@ -112,13 +112,19 @@ func Login(c *fiber.Ctx) error {
 	claim := jwttoken.Claims.(jwt.MapClaims)
 	claim["userId"] = user.ID.Hex()
 	claim["role"] = "user"
-	claim["exp"] = time.Now().Add(time.Hour * 72).Unix()
+	claim["exp"] = time.Now().Add(time.Hour * 6).Unix()
 
 	JWTSignedString,err := config.GetEnv("JWT_SIGNED_STRING")
 	if err != nil {
 		return errors.New("no env for JWT_SIGNED_STRING")
 	}
 	token,err := jwttoken.SignedString([]byte(JWTSignedString))
+	c.Cookie(&fiber.Cookie{
+		Name: "token",
+		Value: token,
+		Expires: time.Now().Add(time.Hour * 6),
+		HTTPOnly: true,
+	})
 	if err != nil {
 		return errors.New("token Id invalid")
 	}
@@ -145,13 +151,17 @@ func AdminLogin(c *fiber.Ctx) error {
 	claim := jwttoken.Claims.(jwt.MapClaims)
 	claim["username"] = "admin"
 	claim["role"] = "admin"
-	claim["exp"] = time.Now().Add(time.Hour * 2).Unix()
+	claim["exp"] = time.Now().Add(time.Hour * 6).Unix()
 
-	token,err := jwttoken.SignedString([]byte("secret"))
+	JWTSignedString,err := config.GetEnv("JWT_SIGNED_STRING")
+	if err != nil {
+		return errors.New("no env for JWT_SIGNED_STRING")
+	}
+	token,err := jwttoken.SignedString([]byte(JWTSignedString))
 	c.Cookie(&fiber.Cookie{
 		Name: "token",
 		Value: token,
-		Expires: time.Now().Add(time.Hour * 2),
+		Expires: time.Now().Add(time.Hour * 6),
 		HTTPOnly: true,
 	})
 
@@ -163,6 +173,13 @@ func AdminLogin(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"token":token,
 	})
+}
+
+func CheckAdmin(c *fiber.Ctx) error {
+	if c.Locals("role").(string) != "admin" {
+		return c.Status(fiber.StatusUnauthorized).SendString("no permission")
+	}
+	return c.Next()
 }
 
 func JWTMiddleware(c *fiber.Ctx) error {
@@ -193,8 +210,9 @@ func JWTMiddleware(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 	}
 
-	// Set the userID in the context
+	// Set the userID,role in the context
 	c.Locals("userId", token.Claims.(jwt.MapClaims)["userId"])
+	c.Locals("role", token.Claims.(jwt.MapClaims)["role"])
 
 	// Call the next handler
 	return c.Next()
