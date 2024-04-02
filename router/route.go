@@ -15,11 +15,11 @@ func Run(app *fiber.App){
     app.Get("/hello", handlers.FooHello)
 
 	// Authentication
-	app.Post("/admin",handlers.FooLogin)
 	app.Post("/auth",auth_handlers.Login)
+	app.Post("/auth/admin",auth_handlers.AdminLogin)
 
 	// verify JWT token
-	app.Use(auth_handlers.AuthMiddleware)
+	app.Use(auth_handlers.JWTMiddleware)
 
 	// ===== foo =====
 	app.Get("/foo/user/:id",handlers.FooLogin)

@@ -183,7 +183,44 @@ func Login(c *fiber.Ctx) error {
 	})
 }
 
-func AuthMiddleware(c *fiber.Ctx) error {
+type AdminLoginType struct {
+	Username	string	`json:"username"`
+	Password	string	`json:"password"`
+}
+
+func AdminLogin(c *fiber.Ctx) error {
+	admin := new(AdminLoginType)
+	if err := c.BodyParser(admin); err != nil{
+		return c.Status(fiber.StatusBadRequest).SendString("Form invalid!")
+	}
+	if admin.Username != "admin1" || admin.Password != "admin"{
+		return c.Status(fiber.StatusUnauthorized).SendString("Not found this admin!")
+	}
+	jwttoken := jwt.New(jwt.SigningMethodHS256)
+	claim := jwttoken.Claims.(jwt.MapClaims)
+	claim["username"] = "admin"
+	claim["role"] = "admin"
+	claim["exp"] = time.Now().Add(time.Hour * 2).Unix()
+
+	token,err := jwttoken.SignedString([]byte("secret"))
+	c.Cookie(&fiber.Cookie{
+		Name: "token",
+		Value: token,
+		Expires: time.Now().Add(time.Hour * 2),
+		HTTPOnly: true,
+	})
+
+	if err != nil {
+		fmt.Println("not send token")
+		return err
+	}
+	fmt.Println("token",token)
+	return c.JSON(fiber.Map{
+		"token":token,
+	})
+}
+
+func JWTMiddleware(c *fiber.Ctx) error {
 	JWTSignedString,err := config.GetEnv("JWT_SIGNED_STRING")
 	if err != nil {
 		return errors.New("no env for JWT_SIGNED_STRING")
