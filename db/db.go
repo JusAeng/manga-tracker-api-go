@@ -20,7 +20,7 @@ func Connect() {
 
 	// defer cancel()
 
-	// client, err := mongo.NewClient(options.Client().ApplyURI("mongodb+srv://planc:VQjaiVg24ZUeVTR7@cluster0.ntxuynn.mongodb.net/?retryWrites=true&w=majority"))
+	// client, err := mongo.NewClient(options.Client().ApplyURI("mongodb+srv://%s:%s@cluster0.ntxuynn.mongodb.net/?retryWrites=true&w=majority"))
 	DB_User,err := config.GetEnv("DB_USER")
 	if err != nil{
 		log.Fatalf("Fail to load env")
