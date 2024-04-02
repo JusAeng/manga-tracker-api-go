@@ -13,6 +13,7 @@ import (
 func Run(app *fiber.App){
 	// Mock
     app.Get("/hello", handlers.FooHello)
+	app.Get("/foo/auth/:id",handlers.FooCheckLineProfileWithLineToken)
 
 	// Authentication
 	app.Post("/auth",auth_handlers.Login)
@@ -20,11 +21,6 @@ func Run(app *fiber.App){
 
 	// verify JWT token
 	app.Use(auth_handlers.JWTMiddleware)
-
-	// ===== foo =====
-	app.Get("/foo/user/:id",handlers.FooLogin)
-	app.Delete("/foo/user/:id",handlers.FooDeleteUser)
-	app.Post("/foo/auth/:id",auth_handlers.GetLineProfileByTokenIdHandler)
 
 	// General
 	app.Get("/manga", manga_handlers.GetMangaHandler)
