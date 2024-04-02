@@ -12,7 +12,7 @@ import (
 )
 
 // Read
-func GetMangasHandler(c *fiber.Ctx) error {
+func GetMangaHandler(c *fiber.Ctx) error {
 	loadedMangas, err := repo.GetMangas()
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())

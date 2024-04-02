@@ -2,55 +2,35 @@ package router
 
 import (
 	"github.com/JusAeng/manga-tracker-api-go/handlers"
-	"github.com/JusAeng/manga-tracker-api-go/handlers/admin_handlers"
+	// "github.com/JusAeng/manga-tracker-api-go/handlers/admin_handlers"
 	"github.com/JusAeng/manga-tracker-api-go/handlers/auth_handlers"
 	"github.com/JusAeng/manga-tracker-api-go/handlers/manga_handlers"
-	"github.com/JusAeng/manga-tracker-api-go/handlers/user_handlers"
+
+	// "github.com/JusAeng/manga-tracker-api-go/handlers/user_handlers"
 	"github.com/gofiber/fiber/v2"
-	// jwtware "github.com/gofiber/jwt/v2"
-	// "github.com/golang-jwt/jwt/v4"
 )
 
 func Run(app *fiber.App){
-	// ===== Auth =====
-	app.Post("/admin",handlers.FooLogin)
-	app.Post("/auth/",auth_handlers.Login)
+	// Mock
     app.Get("/hello", handlers.FooHello)
 
-	// app.Use(jwtware.New(jwtware.Config{
-	// 	SigningKey: []byte("secret"),
-	// }))
+	// Authentication
+	app.Post("/admin",handlers.FooLogin)
+	app.Post("/auth",auth_handlers.Login)
 
+	// verify JWT token
 	app.Use(auth_handlers.AuthMiddleware)
 
 	// ===== foo =====
-	app.Post("/foo/user",handlers.FooAddUser)
 	app.Get("/foo/user/:id",handlers.FooLogin)
 	app.Delete("/foo/user/:id",handlers.FooDeleteUser)
 	app.Post("/foo/auth/:id",auth_handlers.GetLineProfileByTokenIdHandler)
 
-	// ===== manga =====
-	app.Get("/mangas", manga_handlers.GetMangasHandler)
-	app.Get("/mangas/:id", manga_handlers.GetMangaByIdHandler)
+	// General
+	app.Get("/manga", manga_handlers.GetMangaHandler)
+	app.Get("/manga/:id", manga_handlers.GetMangaByIdHandler)
 	app.Get("/mangas/title/:title", manga_handlers.GetMangaByTitleHandler)
-	app.Post("/mangas/vols/:id",manga_handlers.VolumeAdding)
-	// app.Delete("/mangas/allvols/:id",manga_handlers.VolumeDeleteAll)
 
-	// ===== user =====
-	app.Patch("/user/",user_handlers.UpdateUserProfile)
-	app.Put("/user/subscribe/:id",user_handlers.UpdateSubscribe)
-	app.Put("/user/ownerlist/:id/:vol",user_handlers.UpdateOwnerList)
-	app.Put("/user/rating/:id/:score",user_handlers.UpdateRating)
-
-
-	// ====== Admin =======
-	app.Delete("/admin/user/:id",admin_handlers.DeleteUserById)
-
-	app.Post("/admin/manga",admin_handlers.CreateManga)
-	// app.Patch("/admin/manga/:id",admin_handlers.UpdateMangaByID)
-	app.Delete("/admin/manga/:id",admin_handlers.DeleteMangaByID)
-
-	// app.Post("/admin/vol",admin_handlers.CreateVol)
-	// app.Patch("/admin/vol",admin_handlers.UpdateVol)
-	// app.Delete("/admin/vol",admin_handlers.DeleteVol)
+	routingUserPath(app)
+	routingAdminPath(app)
 }
