@@ -1,6 +1,7 @@
 package user_handlers
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -10,7 +11,15 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-var tempId = "5f563a9da793b25a09529123"
+func GetUserProfile(c *fiber.Ctx) error {
+	userId,err := primitive.ObjectIDFromHex(c.Locals("userId").(string))
+	if err != nil {
+		fmt.Println("Convert primitiveID from hex error")
+		return err
+	}
+	userProfile := repo.GetUserProfileById(userId)
+	return c.JSON(userProfile)
+}
 
 type UpdateUserProfileRequest struct {
     Key   string `json:"key"`
@@ -19,7 +28,7 @@ type UpdateUserProfileRequest struct {
 
 func UpdateUserProfile(c *fiber.Ctx) error {
 	req := new(UpdateUserProfileRequest)
-	userId, err := primitive.ObjectIDFromHex(tempId)
+	userId,err := primitive.ObjectIDFromHex(c.Locals("userId").(string))
 	if err != nil{
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
@@ -42,6 +51,10 @@ func UpdateUserProfile(c *fiber.Ctx) error {
 
 func UpdateSubscribe(c *fiber.Ctx) error {
 	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
+	if err != nil {
+		fmt.Println("Convert primitiveID from hex error")
+		return err
+	}
 	userId,err := primitive.ObjectIDFromHex(c.Locals("userId").(string))
 	if err != nil {
 		fmt.Println("Convert primitiveID from hex error")
@@ -51,7 +64,6 @@ func UpdateSubscribe(c *fiber.Ctx) error {
 
 	return err
 }
-
 func UpdateOwnerList(c *fiber.Ctx) error {
 	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil {
@@ -61,7 +73,7 @@ func UpdateOwnerList(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString("ReqError")
 	}
-	userId,err := primitive.ObjectIDFromHex(tempId)
+	userId,err := primitive.ObjectIDFromHex(c.Locals("userId").(string))
 	if err != nil {
 		fmt.Println("Convert primitiveID from hex error")
 		return err
@@ -76,10 +88,13 @@ func UpdateRating(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).SendString("ReqError")
 	}
 	score,err := strconv.Atoi(c.Params("score"))
+	if err != nil{
+		return errors.New("can't convert score")
+	}
 	if score < 1 || score > 10 {
 		return c.Status(fiber.StatusBadRequest).SendString("Rating between 1 - 10")
 	}
-	userId,err := primitive.ObjectIDFromHex(tempId)
+	userId,err := primitive.ObjectIDFromHex(c.Locals("userId").(string))
 	if err != nil{
 		return c.Status(fiber.StatusBadRequest).SendString("Check userId")
 	}
