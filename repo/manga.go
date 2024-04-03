@@ -141,7 +141,7 @@ func AddMangaVol(mangaId primitive.ObjectID,vol models.Vol) (*models.Vol, error)
 		manga.Vols = make(map[string]models.Vol)
 	}
 	if _, exist := manga.Vols[vol.Vol]; exist {
-		return nil,errors.New("This volumn already exist !")
+		return nil,errors.New("this volumn already exist")
     } else {
         manga.Vols[vol.Vol] = vol
     }
@@ -150,7 +150,7 @@ func AddMangaVol(mangaId primitive.ObjectID,vol models.Vol) (*models.Vol, error)
 	for key := range manga.Vols {        
 		floatValue,err := strconv.ParseFloat(key,64)
 		if err != nil{
-			return nil,errors.New("Can't parse to float")
+			return nil,errors.New("can't parse to float")
 		}
 		if floatValue > lastest{
 			lastest = floatValue
