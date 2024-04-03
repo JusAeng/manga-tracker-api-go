@@ -34,6 +34,7 @@ func CreateManga(c *fiber.Ctx) error {
 	manga := new(models.Manga)
 
 	if err := c.BodyParser(manga); err != nil {
+		fmt.Print(err)
 		return c.Status(fiber.StatusBadRequest).SendString("Error BodyParser")
 	}
 	newManga, err := repo.AddManga(manga)
