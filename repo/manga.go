@@ -214,7 +214,35 @@ func DeleteAllVolsById(mangaId primitive.ObjectID) error{
 }
 
 // Update
-func UpdateMangaByTitle(manga *models.Manga) (*models.Manga, error) {
+func UpdateManga(manga *models.Manga) (*models.Manga, error) {
+	var existManga models.Manga
+	collection := db.Client.Database("manga-tracker").Collection("mangas")
+	err := collection.FindOne(context.TODO(), bson.M{"_id":manga.ID}).Decode(&existManga)
+	if err != nil{
+		return nil,err
+	}
+	update := bson.M{
+		"$set": bson.M{
+            "title":          manga.Title,
+            "otherTitles":    manga.OtherTitle,
+            "author":         manga.Author,
+            "otherParticipate": manga.OtherParticipate,
+            "genre":          manga.Genre,
+            "otherGenres":    manga.OtherGeres,
+            "image":          manga.Image,
+            "introduction":   manga.Introduction,
+            "publisher":      manga.Publisher,
+            "firstDateJP":    manga.FirstDateJP,
+            "firstDateTH":    manga.FirstDateTH,
+            "vols":           manga.Vols,
+            "lastVol":        manga.LastVol,
+        },
+	}
+	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": manga.ID}, update)
+	if err != nil {
+		fmt.Println(err)
+		return nil,err
+	}
 	return manga, nil
 }
 

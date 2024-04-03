@@ -11,10 +11,8 @@ func routingAdminPath(app *fiber.App) {
 	adminRoute.Delete("/user/:id",admin_handlers.DeleteUserById)
 
 	adminRoute.Post("/manga",admin_handlers.CreateManga)
-	// adminRoute.Patch("/manga/:id",admin_handlers.UpdateMangaByID)
+	adminRoute.Patch("/manga/",admin_handlers.UpdateManga)
 	adminRoute.Delete("/manga/:id",admin_handlers.DeleteMangaByID)
-
-
 
 	// adminRoute.Post("/vol",admin_handlers.CreateVol)
 	// adminRoute.Patch("/vol",admin_handlers.UpdateVol)

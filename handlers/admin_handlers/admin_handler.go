@@ -45,7 +45,21 @@ func CreateManga(c *fiber.Ctx) error {
 	return c.JSON(newManga) 
 }
 
-func UpdateMangaByID(c *fiber.Ctx) error {return nil}
+func UpdateManga(c *fiber.Ctx) error {
+	manga := new(models.Manga)
+
+	if err := c.BodyParser(manga); err != nil {
+		fmt.Print(err)
+		return c.Status(fiber.StatusBadRequest).SendString("Error BodyParser")
+	}
+
+	newManga, err := repo.UpdateManga(manga)
+	if err != nil {
+		fmt.Println(err)
+		return c.Status(fiber.StatusForbidden).SendString("update fail")
+	}
+	return c.JSON(newManga)
+}
 func DeleteMangaByID(c *fiber.Ctx) error {
 	objectID, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil{
