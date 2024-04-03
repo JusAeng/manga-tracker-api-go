@@ -63,6 +63,23 @@ func GetUserProfileById(userId primitive.ObjectID) (*models.User) {
 	return userProfile
 }
 
+func GetAllUsers() ([]*models.User,error) {
+	
+	var users []*models.User
+
+	collection := db.Client.Database("manga-tracker").Collection("users")
+	cursor, err := collection.Find(context.TODO(), bson.D{})
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(context.TODO(), &users)
+	if err != nil {
+		log.Printf("Failed marshalling %v", err)
+	}
+	return users, err
+}
+
 // patch
 func UpdateUserProfile(userId primitive.ObjectID,key string,newValue string) error{
 	collection := db.Client.Database("manga-tracker").Collection("users")
@@ -79,7 +96,7 @@ func UpdateUserProfile(userId primitive.ObjectID,key string,newValue string) err
 
 // put
 func SubscribeMangaById(userId primitive.ObjectID,mangaId primitive.ObjectID) error{
-	if !isMangaExist(mangaId){ return errors.New("No manga exist")}
+	if !isMangaExist(mangaId){ return errors.New("no manga exist")}
 
 	collection := db.Client.Database("manga-tracker").Collection("users")
 	var user models.User
@@ -123,7 +140,7 @@ func SubscribeMangaById(userId primitive.ObjectID,mangaId primitive.ObjectID) er
 
 
 func UpdateOwnerList(userId primitive.ObjectID,mangaId primitive.ObjectID,vol int) error {
-	if !isMangaExist(mangaId){ return errors.New("No manga exist")}
+	if !isMangaExist(mangaId){ return errors.New("no manga exist")}
 	collection := db.Client.Database("manga-tracker").Collection("users")
 	var user models.User
 	err := collection.FindOne(context.TODO(), bson.M{"_id":userId}).Decode(&user)
@@ -181,12 +198,15 @@ func UpdateOwnerList(userId primitive.ObjectID,mangaId primitive.ObjectID,vol in
 }
 
 func UpdateRateList(userId primitive.ObjectID,mangaId primitive.ObjectID,score int) error{
-	if !isMangaExist(mangaId){ return errors.New("No manga exist")}
+	if !isMangaExist(mangaId){ return errors.New("no manga exist")}
 	user := GetUserProfileById(userId)
 	if user.RateList == nil{
 		user.RateList = make(map[string]int)
 	}
 	err := UpdateMangaScore(mangaId,score)
+	if err != nil {
+		return errors.New("update fail")
+	}
 
 
 	user.RateList[mangaId.Hex()] = score

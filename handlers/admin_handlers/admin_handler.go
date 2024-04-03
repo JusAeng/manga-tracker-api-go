@@ -10,6 +10,13 @@ import (
 )
 
 // User Handlers
+func GetAllUsers(c *fiber.Ctx) error {
+	allUsers,err := repo.GetAllUsers()
+	if err != nil{
+		return nil
+	}
+	return c.JSON(allUsers)
+}
 func DeleteUserById(c *fiber.Ctx) error {
 	objectID, err := primitive.ObjectIDFromHex(c.Params("id"))
 	if err != nil{

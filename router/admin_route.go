@@ -7,6 +7,7 @@ import (
 )
 func routingAdminPath(app *fiber.App) {
 	adminRoute := app.Group("/admin",auth_handlers.CheckAdmin)
+	adminRoute.Get("/users",admin_handlers.GetAllUsers)
 	adminRoute.Delete("/user/:id",admin_handlers.DeleteUserById)
 
 	adminRoute.Post("/manga",admin_handlers.CreateManga)
