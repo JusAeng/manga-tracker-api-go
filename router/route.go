@@ -25,7 +25,7 @@ func Run(app *fiber.App){
 	// General
 	app.Get("/manga", manga_handlers.GetMangaHandler)
 	app.Get("/manga/:id", manga_handlers.GetMangaByIdHandler)
-	app.Get("/mangas/title/:title", manga_handlers.GetMangaByTitleHandler)
+	// app.Get("/mangas/title/:title", manga_handlers.GetMangaByTitleHandler)
 
 	routingUserPath(app)
 	routingAdminPath(app)
