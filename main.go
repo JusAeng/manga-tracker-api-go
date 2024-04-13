@@ -14,7 +14,7 @@ func main() {
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*", // Adjust this to be more restrictive if needed
 		AllowMethods: "GET,POST,HEAD,PUT,DELETE,PATCH",
-		AllowHeaders: "Origin, Content-Type, Accept",
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 	}))
 
 	db.Connect();
