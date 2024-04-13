@@ -73,6 +73,19 @@ func DeleteMangaByID(c *fiber.Ctx) error {
 }
 
 // Vol Handlers
-func CreateVol(c *fiber.Ctx) error {return nil}
-func DeleteVol(c *fiber.Ctx) error {return nil}
+func CreateVol(c *fiber.Ctx) error {
+	return nil
+}
+
+type ReqDeleteVols struct {
+	VolNumbers []string `json:"volNumber"`
+}
+func DeleteVols(c *fiber.Ctx) error {
+	var req ReqDeleteVols
+	if err := c.BodyParser(req); err != nil {
+		fmt.Print(err)
+		return c.Status(fiber.StatusBadRequest).SendString("Error BodyParser")
+	}
+	return c.JSON(req.VolNumbers)
+}
 func UpdateVol(c *fiber.Ctx) error {return nil}

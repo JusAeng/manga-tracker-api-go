@@ -59,6 +59,9 @@ func AddMangaHandler(c *fiber.Ctx) error {
 
 func VolumeAdding(c* fiber.Ctx) error {
 	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
+	if err != nil {
+		return err
+	}
 	vol := new(models.Vol)
 	if err := c.BodyParser(vol); err != nil {
 		log.Println("Error parsing request body:", err)
@@ -77,7 +80,7 @@ func VolumeDeleteAll(c* fiber.Ctx) error {
 	if err != nil{
 		return err
 	}
-	err = repo.DeleteAllVolsById(mangaId)
+	err = repo.DeleteAllVolsByMangaId(mangaId)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
