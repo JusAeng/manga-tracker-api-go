@@ -17,16 +17,16 @@ type Manga struct {
 	Publisher			string				`json:"publisher"`
 	FirstDateJP			string				`json:"firstDateJP" bson:"firstDateJP"`
 	FirstDateTH			string				`json:"firstDateTH" bson:"firstDateTH"`
-	Vols				map[string]Vol		`json:"vols"`
-	LastVol				string				`json:"lastVol" bson:"lastVol"`
+	Vols				[]Vol				`json:"vols"`
+	LastVol				int					`json:"lastVol" bson:"lastVol"`
 	Subscribers			int					`json:"subscribers"`
 	Score				float32				`json:"score"`
 	TotalVoters			int 				`json:"totalVoters" bson:"totalVoters"`
 }
 
 type Vol struct {
-	MangaID			string 				`json:"mangaId"`
-	Vol 			string				`json:"vol"`
+	MangaID			primitive.ObjectID 	`json:"mangaId"`
+	Vol 			int					`json:"vol"`
 	Image			string				`json:"image"`
 	PublishDate		string				`json:"publishDate"`
 	TotalOwner		int					`json:"totalOwner"`

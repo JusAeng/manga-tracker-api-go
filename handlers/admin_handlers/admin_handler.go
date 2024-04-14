@@ -2,6 +2,7 @@ package admin_handlers
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/JusAeng/manga-tracker-api-go/models"
 	"github.com/JusAeng/manga-tracker-api-go/repo"
@@ -74,7 +75,22 @@ func DeleteMangaByID(c *fiber.Ctx) error {
 
 // Vol Handlers
 func CreateVol(c *fiber.Ctx) error {
-	return nil
+	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
+	if err != nil {
+		return err
+	}
+	vol := new(models.Vol)
+	if err := c.BodyParser(vol); err != nil {
+		log.Println("Error parsing request body:", err)
+    	log.Println("Request Body:", c.Body()) // Print the request body for debugging
+		return c.Status(fiber.StatusBadRequest).SendString("requestBody")
+	}
+	vol.MangaID = mangaId
+	newVol, err := repo.AddMangaVol(*vol)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return c.JSON(newVol)
 }
 
 type ReqDeleteVols struct {

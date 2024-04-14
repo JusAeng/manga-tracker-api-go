@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
+
+	// "strconv"
 
 	"github.com/JusAeng/manga-tracker-api-go/db"
 	"github.com/JusAeng/manga-tracker-api-go/models"
@@ -12,42 +13,35 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func AddMangaVol(mangaId primitive.ObjectID,vol models.Vol) (*models.Vol, error) {
+func AddMangaVol(vol models.Vol) (*models.Vol, error) {
 	var manga models.Manga
 	collection := db.Client.Database("manga-tracker").Collection("mangas")
-	err := collection.FindOne(context.TODO(),bson.M{"_id":mangaId}).Decode(&manga)
+	err := collection.FindOne(context.TODO(),bson.M{"_id":vol.MangaID}).Decode(&manga)
 	if err != nil{
 		return nil,err
 	}
+	lastest := vol.Vol
 	if manga.Vols == nil{
-		manga.Vols = make(map[string]models.Vol)
+		manga.Vols = make([]models.Vol,0)
+	} else{
+		for _,e := range manga.Vols {
+			if e.Vol == vol.Vol {
+				return nil,errors.New("already add this vol")
+			}
+			if e.Vol > lastest{
+				lastest = e.Vol
+			}
+		}
 	}
-	if _, exist := manga.Vols[vol.Vol]; exist {
-		return nil,errors.New("this volumn already exist")
-    } else {
-        manga.Vols[vol.Vol] = vol
-    }
-	vol.MangaID = manga.ID.Hex()
-	lastest := float64(0)
-	for key := range manga.Vols {        
-		floatValue,err := strconv.ParseFloat(key,64)
-		if err != nil{
-			return nil,errors.New("can't parse to float")
-		}
-		if floatValue > lastest{
-			lastest = floatValue
-		}
-    }
-	fmt.Println(lastest)
-	manga.LastVol = fmt.Sprintf("%.1f", lastest)
-
+	manga.Vols = append(manga.Vols, vol)
+	manga.LastVol = lastest
 	update := bson.M{
 		"$set": bson.M{
 			"vols": manga.Vols,
 			"lastVol": manga.LastVol,
 		},
 	}
-	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": mangaId}, update)
+	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": vol.MangaID}, update)
 	if err != nil {
 		fmt.Println(err)
 		return nil,err
@@ -63,7 +57,7 @@ func UpdateVol(mangaId primitive.ObjectID,vol models.Vol) (*models.Vol,error){
 func DeleteManyVols(mangaID primitive.ObjectID, vols []models.Vol) ([]models.Vol,error) {
     collection := db.Client.Database("manga-tracker").Collection("mangas")
 
-	var volNumbers []string
+	var volNumbers []int
 	for _,element := range vols {
 		volNumbers = append(volNumbers, element.Vol)
 	}

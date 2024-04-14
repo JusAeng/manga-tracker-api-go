@@ -68,7 +68,8 @@ func VolumeAdding(c* fiber.Ctx) error {
     	log.Println("Request Body:", c.Body()) // Print the request body for debugging
 		return c.Status(fiber.StatusBadRequest).SendString("requestBody")
 	}
-	newVol, err := repo.AddMangaVol(mangaId,*vol)
+	vol.MangaID = mangaId
+	newVol, err := repo.AddMangaVol(*vol)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
