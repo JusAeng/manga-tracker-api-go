@@ -2,8 +2,6 @@ package repo
 
 import (
 	"context"
-	"errors"
-	"strconv"
 
 	// "errors"
 	"fmt"
@@ -130,49 +128,6 @@ func AddManga(manga *models.Manga) (*models.Manga, error) {
 // 	return &vol, nil
 // }
 
-func AddMangaVol(mangaId primitive.ObjectID,vol models.Vol) (*models.Vol, error) {
-	var manga models.Manga
-	collection := db.Client.Database("manga-tracker").Collection("mangas")
-	err := collection.FindOne(context.TODO(),bson.M{"_id":mangaId}).Decode(&manga)
-	if err != nil{
-		return nil,err
-	}
-	if manga.Vols == nil{
-		manga.Vols = make(map[string]models.Vol)
-	}
-	if _, exist := manga.Vols[vol.Vol]; exist {
-		return nil,errors.New("this volumn already exist")
-    } else {
-        manga.Vols[vol.Vol] = vol
-    }
-	vol.MangaID = manga.ID.Hex()
-	lastest := float64(0)
-	for key := range manga.Vols {        
-		floatValue,err := strconv.ParseFloat(key,64)
-		if err != nil{
-			return nil,errors.New("can't parse to float")
-		}
-		if floatValue > lastest{
-			lastest = floatValue
-		}
-    }
-	fmt.Println(lastest)
-	manga.LastVol = fmt.Sprintf("%.1f", lastest)
-
-	update := bson.M{
-		"$set": bson.M{
-			"vols": manga.Vols,
-			"lastVol": manga.LastVol,
-		},
-	}
-	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": mangaId}, update)
-	if err != nil {
-		fmt.Println(err)
-		return nil,err
-	}
-
-	return &vol, nil
-}
 // Delete
 func DeleteMangaByTitle(title string) error {
 	collection := db.Client.Database("manga-tracker").Collection("mangas")
@@ -188,27 +143,6 @@ func DeleteMangaById(id primitive.ObjectID) error {
 	_, err := collection.DeleteOne(context.TODO(), bson.M{"_id": id})
 	if err != nil {
 		log.Printf("Error : %v", err)
-	}
-	return nil
-}
-
-func DeleteAllVolsById(mangaId primitive.ObjectID) error{
-	var manga models.Manga
-	collection := db.Client.Database("manga-tracker").Collection("mangas")
-	err := collection.FindOne(context.TODO(),bson.M{"_id":mangaId}).Decode(&manga)
-	if err != nil{
-		return err
-	}
-	update := bson.M{
-		"$set": bson.M{
-			"vols": nil,
-			"lastVol": "0",
-		},
-	}
-	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": mangaId}, update)
-	if err != nil {
-		fmt.Println(err)
-		return err
 	}
 	return nil
 }
