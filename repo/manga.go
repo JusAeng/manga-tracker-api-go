@@ -61,6 +61,31 @@ func GetMangaByTitle(title string) ([]*models.Manga, error) {
 	return manga, err
 }
 
+func GetMangaFromSubscribeList(userId primitive.ObjectID) ([]*models.Manga,error){
+	var manga []*models.Manga
+
+	collection := db.Client.Database("manga-tracker").Collection("mangas")
+	userProfile := GetUserProfileById(userId)
+	mySubscribeList := []primitive.ObjectID{}
+	for _,e := range userProfile.SubscribeList {
+		es,err := primitive.ObjectIDFromHex(e)
+		if err != nil {
+			fmt.Println("Convert primitiveID from hex error")
+		}
+		mySubscribeList = append(mySubscribeList, es)
+	}
+	filter := bson.M{"_id": bson.M{"$in": mySubscribeList}}
+	cursor, err := collection.Find(context.TODO(), filter)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &manga)
+	if err != nil {
+		log.Printf("Failed marshalling %v", err)
+	}
+	return manga, err
+}
+
 func isMangaExist(mangaId primitive.ObjectID) bool {
 	collection := db.Client.Database("manga-tracker").Collection("mangas")
 	var result *models.Manga

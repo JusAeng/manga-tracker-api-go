@@ -21,6 +21,19 @@ func GetUserProfile(c *fiber.Ctx) error {
 	return c.JSON(userProfile)
 }
 
+func GetSubscribeList(c *fiber.Ctx) error {
+	userId,err := primitive.ObjectIDFromHex(c.Locals("userId").(string))
+	if err != nil {
+		fmt.Println("Convert primitiveID from hex error")
+		return err
+	}
+	result,err := repo.GetMangaFromSubscribeList(userId)
+	if err != nil {
+		return errors.New("get manga from subscribe list error")
+	}
+	return c.JSON(result)
+}
+
 type UpdateUserProfileRequest struct {
     Key   string `json:"key"`
     Value string `json:"value"`

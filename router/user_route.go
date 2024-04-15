@@ -11,6 +11,8 @@ func routingUserPath(app *fiber.App) {
 	userRoute.Get("/profile",user_handlers.GetUserProfile)
 	userRoute.Patch("/profile",user_handlers.UpdateUserProfile)
 
+	userRoute.Get("/subscribelist",user_handlers.GetSubscribeList)
+
 	userRoute.Put("/subscribe/:id",user_handlers.UpdateSubscribe)
 	userRoute.Put("/ownerlist/:id/:vol",user_handlers.UpdateOwnerList)
 	userRoute.Put("/rating/:id/:score",user_handlers.UpdateRating)
