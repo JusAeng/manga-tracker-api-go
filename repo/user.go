@@ -96,33 +96,25 @@ func UpdateUserProfile(userId primitive.ObjectID,key string,newValue string) err
 
 // put
 func SubscribeMangaById(userId primitive.ObjectID,mangaId primitive.ObjectID) error{
-	mg_collection := db.Client.Database("manga-tracker").Collection("mangas")
-	var manga models.Manga
-	err := mg_collection.FindOne(context.TODO(), bson.M{"_id":mangaId}).Decode(&manga)
-	if err != nil{
-		fmt.Println("User not exist")
-		return err
-	}
-
+	isMangaExist(mangaId)
 	collection := db.Client.Database("manga-tracker").Collection("users")
 	var user models.User
-	err = collection.FindOne(context.TODO(), bson.M{"_id":userId}).Decode(&user)
+	err := collection.FindOne(context.TODO(), bson.M{"_id":userId}).Decode(&user)
 	if err != nil{
 		fmt.Println("User not exist")
 		return err
 	}
-
+	temp := []string{}
 	if user.SubscribeList == nil {
-		user.SubscribeList = append(user.SubscribeList, manga)
+		user.SubscribeList = []string{mangaId.Hex()}
 	}else{
-		var temp []models.Manga
-		for _,v := range user.SubscribeList{
-			if v.ID != mangaId {
-				temp = append(temp, v)
+		for _,e := range user.SubscribeList{
+			if e != mangaId.Hex() {
+				temp = append(temp, e)
 			}
 		}
 		if len(temp) == len(user.SubscribeList){
-			temp = append(temp, manga)
+			temp = append(temp, mangaId.Hex())
 			UpdateMangaSubscriber(mangaId,1)
 		}else{
 			UpdateMangaSubscriber(mangaId,-1)
