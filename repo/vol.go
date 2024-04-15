@@ -50,27 +50,38 @@ func AddMangaVol(vol models.Vol) (*models.Vol, error) {
 	return &vol, nil
 }
 
-func UpdateVol(mangaId primitive.ObjectID,vol models.Vol) (*models.Vol,error){
-	return nil,nil
+func UpdateVol(mangaId primitive.ObjectID,req models.Vol) (error){
+	collection := db.Client.Database("manga-tracker").Collection("mangas")
+	filter := bson.M{
+        "_id": 		mangaId,
+        "vols.vol": req.Vol,
+    }
+    update := bson.M{
+        "$set": bson.M{
+            "vols.$.image":       req.Image,
+            "vols.$.publishDate": req.PublishDate,
+        },
+    }
+	result, err := collection.UpdateMany(context.Background(), filter, update)
+	if err != nil {
+		return errors.New("can't update this vol")
+	}
+	fmt.Printf("Update %d documents\n", result.ModifiedCount)
+	return nil
 }
 
-func DeleteManyVols(mangaID primitive.ObjectID, vols []models.Vol) ([]models.Vol,error) {
+func DeleteManyVols(mangaID primitive.ObjectID, volNumbers []int) ([]int,error) {
     collection := db.Client.Database("manga-tracker").Collection("mangas")
+	fmt.Println("look: ",mangaID,volNumbers)
+	filter := bson.M{"_id": mangaID}
+	update := bson.M{"$pull": bson.M{"vols": bson.M{"vol": bson.M{"$in": volNumbers}}}}
 
-	var volNumbers []int
-	for _,element := range vols {
-		volNumbers = append(volNumbers, element.Vol)
-	}
-    filter := bson.M{
-        "_id": mangaID,
-        "vols": bson.M{"$elemMatch": bson.M{"vol": bson.M{"$in": volNumbers}}},
-    }
-    result,err := collection.DeleteMany(context.TODO(), filter)
+    result,err := collection.UpdateMany(context.TODO(), filter, update)
 	if err != nil {
 		return nil,err
 	}
-	fmt.Printf("Deleted %d documents\n", result.DeletedCount)
-    return vols,err
+	fmt.Printf("Update %d documents\n", result.ModifiedCount)
+    return volNumbers,err
 }
 
 func DeleteAllVolsByMangaId(mangaId primitive.ObjectID) error{

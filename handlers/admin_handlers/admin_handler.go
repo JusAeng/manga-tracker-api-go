@@ -1,6 +1,7 @@
 package admin_handlers
 
 import (
+	"errors"
 	"fmt"
 	"log"
 
@@ -94,14 +95,37 @@ func CreateVol(c *fiber.Ctx) error {
 }
 
 type ReqDeleteVols struct {
-	VolNumbers []string `json:"volNumber"`
+	VolNumbers []int `json:"volNumbers"`
 }
 func DeleteVols(c *fiber.Ctx) error {
-	var req ReqDeleteVols
+	req := new(ReqDeleteVols)
+	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
+	if err != nil {
+		return errors.New("manga ID invalid")
+	}
 	if err := c.BodyParser(req); err != nil {
 		fmt.Print(err)
 		return c.Status(fiber.StatusBadRequest).SendString("Error BodyParser")
 	}
-	return c.JSON(req.VolNumbers)
+	res,err := repo.DeleteManyVols(mangaId,req.VolNumbers)
+	if err != nil {
+		return errors.New("delete error")
+	}
+	return c.JSON(res)
 }
-func UpdateVol(c *fiber.Ctx) error {return nil}
+func UpdateVol(c *fiber.Ctx) error {
+	req := new(models.Vol)
+	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
+	if err != nil {
+		return errors.New("manga ID invalid")
+	}
+	if err := c.BodyParser(req); err != nil {
+		fmt.Print(err)
+		return c.Status(fiber.StatusBadRequest).SendString("Error BodyParser")
+	}
+	err = repo.UpdateVol(mangaId,*req)
+	if err != nil {
+		return errors.New("delete error")
+	}
+	return nil
+}

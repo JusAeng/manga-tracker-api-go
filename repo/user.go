@@ -214,7 +214,6 @@ func UpdateRateList(userId primitive.ObjectID,mangaId primitive.ObjectID,score i
 		return errors.New("update fail")
 	}
 
-
 	user.RateList[mangaId.Hex()] = score
 	if score == 0 {
 		delete(user.RateList,mangaId.Hex())
