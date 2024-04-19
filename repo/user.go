@@ -137,14 +137,16 @@ func SubscribeMangaById(userId primitive.ObjectID,mangaId primitive.ObjectID) er
 }
 
 
-func UpdateOwnerList(userId primitive.ObjectID,mangaId primitive.ObjectID,vol int) error {
-	if !isMangaExist(mangaId){ return errors.New("no manga exist")}
+func UpdateOwnerList(userId primitive.ObjectID,mangaId primitive.ObjectID,vol int) ([]int,error) {
+	if !isMangaExist(mangaId){ 
+		return []int{}, errors.New("no manga exist")
+	}
 	collection := db.Client.Database("manga-tracker").Collection("users")
 	var user models.User
 	err := collection.FindOne(context.TODO(), bson.M{"_id":userId}).Decode(&user)
 	if err != nil {
 		fmt.Println("User not found eiei")
-		return err
+		return []int{}, err
 	}
 	vols := []int{vol}
 	if user.OwnerList == nil {
@@ -189,10 +191,10 @@ func UpdateOwnerList(userId primitive.ObjectID,mangaId primitive.ObjectID,vol in
 	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": userId}, update)
 	if err != nil {
 		fmt.Println(err)
-		return err
+		return []int{},err
 	}
 
-	return nil
+	return user.OwnerList[mangaId.Hex()],nil
 }
 
 func UpdateRateList(userId primitive.ObjectID,mangaId primitive.ObjectID,score int) error{

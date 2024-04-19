@@ -91,9 +91,12 @@ func UpdateOwnerList(c *fiber.Ctx) error {
 		fmt.Println("Convert primitiveID from hex error")
 		return err
 	}
-	err = repo.UpdateOwnerList(userId,mangaId,vol)
+	ownerList,err := repo.UpdateOwnerList(userId,mangaId,vol)
+	if err != nil{
+		return err
+	}
 
-	return err
+	return c.JSON(ownerList)
 }
 func UpdateRating(c *fiber.Ctx) error {
 	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
