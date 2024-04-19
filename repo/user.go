@@ -203,10 +203,6 @@ func UpdateRateList(userId primitive.ObjectID,mangaId primitive.ObjectID,score i
 	if user.RateList == nil{
 		user.RateList = make(map[string]int)
 	}
-	err := UpdateMangaScore(mangaId,score)
-	if err != nil {
-		return errors.New("update fail")
-	}
 
 	user.RateList[mangaId.Hex()] = score
 	if score == 0 {
@@ -219,11 +215,15 @@ func UpdateRateList(userId primitive.ObjectID,mangaId primitive.ObjectID,score i
 	}
 
 	collection := db.Client.Database("manga-tracker").Collection("users")
-	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": userId}, update)
+	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": userId}, update)
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
+	// err = UpdateMangaScore(mangaId,score)
+	// if err != nil {
+	// 	return errors.New("update fail")
+	// }
 
 	return err
 }

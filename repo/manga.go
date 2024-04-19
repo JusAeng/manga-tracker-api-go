@@ -234,11 +234,13 @@ func UpdateMangaScore(mangaId primitive.ObjectID,score int) error {
 	if err != nil{
 		return err
 	}
-	if score == 0{
+	if score == 0 {
 		manga.TotalVoters -= 1
 	}else{
 		manga.TotalVoters += 1
 	}
+	fmt.Println("OldScore: ",manga.Score," totalVoter: ",manga.TotalVoters)
+	fmt.Println("AllScore",(manga.Score+float32(score))/(float32(manga.TotalVoters)))
 	update := bson.M{
 		"$set": bson.M{
 			"score": (manga.Score+float32(score))/(float32(manga.TotalVoters)),
