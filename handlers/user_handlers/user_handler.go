@@ -110,8 +110,8 @@ func UpdateRating(c *fiber.Ctx) error {
 	if err != nil{
 		return errors.New("can't convert score")
 	}
-	if score < 1 || score > 10 {
-		return c.Status(fiber.StatusBadRequest).SendString("Rating between 1 - 10")
+	if score < 0 || score > 5 {
+		return c.Status(fiber.StatusBadRequest).SendString("Rating between 0 - 5")
 	}
 	userId,err := primitive.ObjectIDFromHex(c.Locals("userId").(string))
 	if err != nil{
