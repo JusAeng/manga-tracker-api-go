@@ -95,14 +95,14 @@ func UpdateUserProfile(userId primitive.ObjectID,key string,newValue string) err
 
 
 // put
-func SubscribeMangaById(userId primitive.ObjectID,mangaId primitive.ObjectID) error{
+func SubscribeMangaById(userId primitive.ObjectID,mangaId primitive.ObjectID) ([]string,error){
 	isMangaExist(mangaId)
 	collection := db.Client.Database("manga-tracker").Collection("users")
 	var user models.User
 	err := collection.FindOne(context.TODO(), bson.M{"_id":userId}).Decode(&user)
 	if err != nil{
 		fmt.Println("User not exist")
-		return err
+		return []string{},err
 	}
 	temp := []string{}
 	if user.SubscribeList == nil {
@@ -130,10 +130,10 @@ func SubscribeMangaById(userId primitive.ObjectID,mangaId primitive.ObjectID) er
 	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": userId}, update)
 	if err != nil {
 		fmt.Println(err)
-		return err
+		return []string{},err
 	}
 	
-	return nil
+	return user.SubscribeList,nil
 }
 
 
@@ -197,7 +197,7 @@ func UpdateOwnerList(userId primitive.ObjectID,mangaId primitive.ObjectID,vol in
 	return user.OwnerList[mangaId.Hex()],nil
 }
 
-func UpdateRateList(userId primitive.ObjectID,mangaId primitive.ObjectID,score int) error{
+func UpdateRateList(userId primitive.ObjectID,mangaId primitive.ObjectID,score int) (error){
 	if !isMangaExist(mangaId){ return errors.New("no manga exist")}
 	user := GetUserProfileById(userId)
 	if user.RateList == nil{

@@ -73,9 +73,12 @@ func UpdateSubscribe(c *fiber.Ctx) error {
 		fmt.Println("Convert primitiveID from hex error")
 		return err
 	}
-	err = repo.SubscribeMangaById(userId,mangaId)
+	subscribeList,err := repo.SubscribeMangaById(userId,mangaId)
+	if err != nil {
+		return err
+	}
 
-	return err
+	return c.JSON(subscribeList)
 }
 func UpdateOwnerList(c *fiber.Ctx) error {
 	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
@@ -115,6 +118,9 @@ func UpdateRating(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).SendString("Check userId")
 	}
 	err = repo.UpdateRateList(userId,mangaId,score)
+	if err != nil{
+		return err
+	}
 
-	return err
+	return c.JSON(score)
 }
