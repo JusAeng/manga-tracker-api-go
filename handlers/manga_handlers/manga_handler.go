@@ -75,7 +75,7 @@ func GetMangaRecommend(c *fiber.Ctx) error {
 	}
 	service.Shuffle(allManga)
 	selected := make([]*models.Manga, 8)
-    for i := 0; i < 3; i++ {
+    for i := 0; i < 8; i++ {
         index := rand.Intn(len(allManga))
         selected[i] = allManga[index]
     }
@@ -89,7 +89,7 @@ func GetMangaNew(c *fiber.Ctx) error {
 	}
 	service.Shuffle(allManga)
 	selected := make([]*models.Manga, 5)
-    for i := 0; i < 3; i++ {
+    for i := 0; i < 5; i++ {
         index := rand.Intn(len(allManga))
         selected[i] = allManga[index]
     }
