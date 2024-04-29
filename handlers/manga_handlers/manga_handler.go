@@ -2,10 +2,12 @@ package manga_handlers
 
 import (
 	"log"
+	"math/rand"
 	"net/url"
 
 	"github.com/JusAeng/manga-tracker-api-go/models"
 	"github.com/JusAeng/manga-tracker-api-go/repo"
+	"github.com/JusAeng/manga-tracker-api-go/service"
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -39,6 +41,61 @@ func GetMangaByTitleHandler(c *fiber.Ctx) error {
 	}
 	return c.JSON(manga)
 }
+
+func GetMangaHighlight(c *fiber.Ctx) error {
+	mangaId, err := primitive.ObjectIDFromHex("662d5f00d657e10679478b83")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	manga, err := repo.GetMangaById(mangaId)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return c.JSON(manga)
+}
+
+func GetMangaTrending(c *fiber.Ctx) error {
+	allManga,err := repo.GetMangas()
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	service.Shuffle(allManga)
+	selected := make([]*models.Manga, 3)
+    for i := 0; i < 3; i++ {
+        index := rand.Intn(len(allManga))
+        selected[i] = allManga[index]
+    }
+	return c.JSON(selected)
+}
+
+func GetMangaRecommend(c *fiber.Ctx) error {
+	allManga,err := repo.GetMangas()
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	service.Shuffle(allManga)
+	selected := make([]*models.Manga, 8)
+    for i := 0; i < 3; i++ {
+        index := rand.Intn(len(allManga))
+        selected[i] = allManga[index]
+    }
+	return c.JSON(selected)
+}
+
+func GetMangaNew(c *fiber.Ctx) error {
+	allManga,err := repo.GetMangas()
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	service.Shuffle(allManga)
+	selected := make([]*models.Manga, 5)
+    for i := 0; i < 3; i++ {
+        index := rand.Intn(len(allManga))
+        selected[i] = allManga[index]
+    }
+	return c.JSON(selected)
+}
+
 
 // Create
 func AddMangaHandler(c *fiber.Ctx) error {
