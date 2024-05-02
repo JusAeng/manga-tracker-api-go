@@ -213,9 +213,13 @@ func UpdateMangaSubscriber(mangaId primitive.ObjectID,n int) error {
 	if err != nil{
 		return err
 	}
+	temp := manga.Subscribers + n
+	if (temp < 0){
+		temp = 0
+	}
 	update := bson.M{
 		"$set": bson.M{
-			"subscribers": manga.Subscribers + n,
+			"subscribers": temp,
 		},
 	}
 	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": mangaId}, update)
