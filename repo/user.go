@@ -115,22 +115,24 @@ func SubscribeMangaById(userId primitive.ObjectID,mangaId primitive.ObjectID) ([
 		}
 		if len(temp) == len(user.SubscribeList){
 			temp = append(temp, mangaId.Hex())
-			UpdateMangaSubscriber(mangaId,1)
-		}else{
-			UpdateMangaSubscriber(mangaId,-1)
 		}
 		user.SubscribeList = temp
 	}
 	update := bson.M{
 		"$set": bson.M{
 			"subscribeList": user.SubscribeList,
-			"totalSubScribe": len(user.SubscribeList),
+			"totalSubscribe": len(user.SubscribeList),
 		},
 	}
 	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": userId}, update)
 	if err != nil {
 		fmt.Println(err)
 		return []string{},err
+	}
+	if len(temp) == len(user.SubscribeList){
+		UpdateMangaSubscriber(mangaId,1)
+	}else{
+		UpdateMangaSubscriber(mangaId,-1)
 	}
 	
 	return user.SubscribeList,nil
