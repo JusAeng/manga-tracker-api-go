@@ -155,11 +155,12 @@ func UpdateOwnerList(userId primitive.ObjectID,mangaId primitive.ObjectID,vol in
 		user.OwnerList = map[string][]int{
 			mangaId.Hex(): vols,
 		}
+		user.TotalBooks = 1
 	}else{
 		allvols ,exist := user.OwnerList[mangaId.Hex()]
 		if !exist {
 			user.OwnerList[mangaId.Hex()] = vols
-			user.TotalBooks = 1
+			user.TotalBooks += 1
 		}else{
 			temp := []int{}
 			for _,v := range allvols{
