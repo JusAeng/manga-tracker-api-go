@@ -41,7 +41,7 @@ func EncryptHexId(subIdLine string) (string,error){
 		for i:=0; i< 48 - len(insertedHexId); i++ {
 			s, err := shieftHex(string(insertedHexId[i]),string(encryptionKey[added]))
 			if err != nil{
-				return "",errors.New("Not Heximal form")
+				return "",errors.New("not Heximal form")
 			}
 			fullHexId += s
 			added += 1
@@ -50,7 +50,7 @@ func EncryptHexId(subIdLine string) (string,error){
 	}
 
 	if len(fullHexId) != 48 {
-		return "",errors.New("Hex Id is invalid length")
+		return "",errors.New("hex Id is invalid length")
 	}
 
 	// now we going to process by half it !
@@ -58,7 +58,7 @@ func EncryptHexId(subIdLine string) (string,error){
 	for i:=0; i<24; i++{
 		s,err := meanHex(string(fullHexId[i]),string(fullHexId[24+i]))
 		if err != nil{
-			return "",errors.New("Can't process this heximal")
+			return "",errors.New("can't process this heximal")
 		}
 		halfHexId += s
 	}
