@@ -10,10 +10,9 @@ import (
 
 	"github.com/JusAeng/manga-tracker-api-go/config"
 	"github.com/JusAeng/manga-tracker-api-go/repo"
-	"github.com/JusAeng/manga-tracker-api-go/service"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"golang.org/x/crypto/bcrypt"
 
 	"fmt"
 	"io"
@@ -89,28 +88,15 @@ func Login(c *fiber.Ctx) error {
 	if err != nil{
 		return c.SendStatus(fiber.StatusBadRequest)
 	}
-	hexId := lineProfile.Sub
-	encryptHexId,err := service.EncryptHexId(hexId)
-	if err != nil{
-		fmt.Println(err)
-		return c.SendStatus(fiber.StatusBadRequest)
-	}
 
-	userId, err := primitive.ObjectIDFromHex(encryptHexId)
-	if err != nil{
-		return nil
-	}
-	user := repo.GetUserProfileById(userId)
-	if user == nil{
-		user,err = repo.RegisterUser(userId,lineProfile.Name,lineProfile.Picture)
-		if err != nil{
-			return c.Status(fiber.StatusBadRequest).SendString(err.Error())
-		}
+	user, err := repo.GetOrCreateUserByLineID(lineProfile.Sub, lineProfile.Name, lineProfile.Picture)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 
 	jwttoken := jwt.New(jwt.SigningMethodHS256)
 	claim := jwttoken.Claims.(jwt.MapClaims)
-	claim["userId"] = user.ID.Hex()
+	claim["userId"] = user.ID.String()
 	claim["role"] = "user"
 	claim["exp"] = time.Now().Add(time.Hour * 6).Unix()
 
@@ -119,15 +105,15 @@ func Login(c *fiber.Ctx) error {
 		return errors.New("no env for JWT_SIGNED_STRING")
 	}
 	token,err := jwttoken.SignedString([]byte(JWTSignedString))
+	if err != nil {
+		return errors.New("token Id invalid")
+	}
 	c.Cookie(&fiber.Cookie{
 		Name: "token",
 		Value: token,
 		Expires: time.Now().Add(time.Hour * 6),
 		HTTPOnly: true,
 	})
-	if err != nil {
-		return errors.New("token Id invalid")
-	}
 
 	return c.JSON(fiber.Map{
 		"token":token,
@@ -145,7 +131,20 @@ func AdminLogin(c *fiber.Ctx) error {
 	if err := c.BodyParser(admin); err != nil{
 		return c.Status(fiber.StatusBadRequest).SendString("Form invalid!")
 	}
-	if admin.Username != "admin1" || admin.Password != "admin"{
+
+	adminUsername, err := config.GetEnv("ADMIN_USERNAME")
+	if err != nil || adminUsername == "" {
+		return errors.New("no env for ADMIN_USERNAME")
+	}
+	adminPasswordHash, err := config.GetEnv("ADMIN_PASSWORD_HASH")
+	if err != nil || adminPasswordHash == "" {
+		return errors.New("no env for ADMIN_PASSWORD_HASH")
+	}
+
+	if admin.Username != adminUsername {
+		return c.Status(fiber.StatusUnauthorized).SendString("Not found this admin!")
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(adminPasswordHash), []byte(admin.Password)); err != nil {
 		return c.Status(fiber.StatusUnauthorized).SendString("Not found this admin!")
 	}
 	jwttoken := jwt.New(jwt.SigningMethodHS256)
@@ -167,10 +166,8 @@ func AdminLogin(c *fiber.Ctx) error {
 	})
 
 	if err != nil {
-		fmt.Println("not send token")
 		return err
 	}
-	fmt.Println("token",token)
 	return c.JSON(fiber.Map{
 		"token":token,
 	})
@@ -205,6 +202,13 @@ func JWTMiddleware(c *fiber.Ctx) error {
 	tokenString := parts[1]
 	// Parse and validate the JWT token
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Reject anything that isn't HMAC-signed. Without this check a
+		// forged token with alg=none, or an alg swapped to one this server
+		// never signs with, could otherwise be accepted (classic JWT
+		// "alg confusion" issue).
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
 		return jwtKey, nil
 	})
 	if err != nil || !token.Valid {

@@ -9,7 +9,7 @@ import (
 	"github.com/JusAeng/manga-tracker-api-go/service"
 
 	"github.com/gofiber/fiber/v2"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/google/uuid"
 )
 
 // Read
@@ -22,13 +22,16 @@ func GetMangaHandler(c *fiber.Ctx) error {
 }
 
 func GetMangaByIdHandler(c *fiber.Ctx) error {
-	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
+	mangaId, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 	manga, err := repo.GetMangaById(mangaId)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	if manga == nil {
+		return c.SendStatus(fiber.StatusNotFound)
 	}
 	return c.JSON(manga)
 }
@@ -42,13 +45,12 @@ func GetMangaByTitleHandler(c *fiber.Ctx) error {
 }
 
 func GetMangaHighlight(c *fiber.Ctx) error {
-	mangaId, err := primitive.ObjectIDFromHex("662d5f00d657e10679478b83")
+	manga, err := repo.GetHighlightManga()
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
-	manga, err := repo.GetMangaById(mangaId)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	if manga == nil {
+		return c.SendStatus(fiber.StatusNotFound)
 	}
 	return c.JSON(manga)
 }
@@ -100,9 +102,9 @@ func AddMangaHandler(c *fiber.Ctx) error {
 }
 
 func VolumeAdding(c* fiber.Ctx) error {
-	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
+	mangaId, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return err
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 	vol := new(models.Vol)
 	if err := c.BodyParser(vol); err != nil {
@@ -119,9 +121,9 @@ func VolumeAdding(c* fiber.Ctx) error {
 }
 
 func VolumeDeleteAll(c* fiber.Ctx) error {
-	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
+	mangaId, err := uuid.Parse(c.Params("id"))
 	if err != nil{
-		return err
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 	err = repo.DeleteAllVolsByMangaId(mangaId)
 	if err != nil {
@@ -139,7 +141,7 @@ func DeleteMangaByTitleHandler(c *fiber.Ctx) error{
 		log.Printf("Error decoding title: %v", err)
 		return c.Status(fiber.StatusBadRequest).SendString("Error decoding title")
 	}
-	
+
 	err = repo.DeleteMangaByTitle(mangaTitle)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())

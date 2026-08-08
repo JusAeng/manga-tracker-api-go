@@ -3,104 +3,108 @@ package repo
 import (
 	"context"
 	"errors"
-	"fmt"
-
-	// "strconv"
 
 	"github.com/JusAeng/manga-tracker-api-go/db"
 	"github.com/JusAeng/manga-tracker-api-go/models"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
-func AddMangaVol(vol models.Vol) (*models.Vol, error) {
-	var manga models.Manga
-	collection := db.Client.Database("manga-tracker").Collection("mangas")
-	err := collection.FindOne(context.TODO(),bson.M{"_id":vol.MangaID}).Decode(&manga)
-	if err != nil{
-		return nil,err
-	}
-	lastest := vol.Vol
-	if manga.Vols == nil{
-		manga.Vols = make([]models.Vol,0)
-	} else{
-		for _,e := range manga.Vols {
-			if e.Vol == vol.Vol {
-				return nil,errors.New("already add this vol")
-			}
-			if e.Vol > lastest{
-				lastest = e.Vol
-			}
-		}
-	}
-	manga.Vols = append(manga.Vols, vol)
-	manga.LastVol = lastest
-	update := bson.M{
-		"$set": bson.M{
-			"vols": manga.Vols,
-			"lastVol": manga.LastVol,
-		},
-	}
-	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": vol.MangaID}, update)
-	if err != nil {
-		fmt.Println(err)
-		return nil,err
-	}
-
-	return &vol, nil
+func refreshLastVol(ctx context.Context, tx pgx.Tx, mangaId uuid.UUID) error {
+	_, err := tx.Exec(ctx, `
+		UPDATE manga SET last_vol = COALESCE((SELECT MAX(vol_number) FROM vols WHERE manga_id = $1), 0)
+		WHERE id = $1
+	`, mangaId)
+	return err
 }
 
-func UpdateVol(mangaId primitive.ObjectID,req models.Vol) (error){
-	collection := db.Client.Database("manga-tracker").Collection("mangas")
-	filter := bson.M{
-        "_id": 		mangaId,
-        "vols.vol": req.Vol,
-    }
-    update := bson.M{
-        "$set": bson.M{
-            "vols.$.image":       req.Image,
-            "vols.$.publishDate": req.PublishDate,
-        },
-    }
-	result, err := collection.UpdateMany(context.Background(), filter, update)
+func AddMangaVol(vol models.Vol) (*models.Vol, error) {
+	ctx := context.Background()
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	var created models.Vol
+	err = tx.QueryRow(ctx, `
+		INSERT INTO vols (manga_id, vol_number, image, publish_date)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, manga_id, vol_number, image, publish_date, total_owner_count
+	`, vol.MangaID, vol.VolNumber, vol.Image, vol.PublishDate).Scan(
+		&created.ID, &created.MangaID, &created.VolNumber, &created.Image, &created.PublishDate, &created.TotalOwnerCount,
+	)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // unique_violation
+			return nil, errors.New("already add this vol")
+		}
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" { // foreign_key_violation
+			return nil, errors.New("manga does not exist")
+		}
+		return nil, err
+	}
+
+	if err := refreshLastVol(ctx, tx, vol.MangaID); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return &created, nil
+}
+
+func UpdateVol(mangaId uuid.UUID, req models.Vol) error {
+	tag, err := db.Pool.Exec(context.Background(), `
+		UPDATE vols SET image = $1, publish_date = $2
+		WHERE manga_id = $3 AND vol_number = $4
+	`, req.Image, req.PublishDate, mangaId, req.VolNumber)
 	if err != nil {
 		return errors.New("can't update this vol")
 	}
-	fmt.Printf("Update %d documents\n", result.ModifiedCount)
+	if tag.RowsAffected() == 0 {
+		return errors.New("vol not found")
+	}
 	return nil
 }
 
-func DeleteManyVols(mangaID primitive.ObjectID, volNumbers []int) ([]int,error) {
-    collection := db.Client.Database("manga-tracker").Collection("mangas")
-	fmt.Println("look: ",mangaID,volNumbers)
-	filter := bson.M{"_id": mangaID}
-	update := bson.M{"$pull": bson.M{"vols": bson.M{"vol": bson.M{"$in": volNumbers}}}}
-
-    result,err := collection.UpdateMany(context.TODO(), filter, update)
+func DeleteManyVols(mangaId uuid.UUID, volNumbers []int) ([]int, error) {
+	ctx := context.Background()
+	tx, err := db.Pool.Begin(ctx)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-	fmt.Printf("Update %d documents\n", result.ModifiedCount)
-    return volNumbers,err
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, `
+		DELETE FROM vols WHERE manga_id = $1 AND vol_number = ANY($2)
+	`, mangaId, volNumbers); err != nil {
+		return nil, err
+	}
+
+	if err := refreshLastVol(ctx, tx, mangaId); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return volNumbers, nil
 }
 
-func DeleteAllVolsByMangaId(mangaId primitive.ObjectID) error{
-	var manga models.Manga
-	collection := db.Client.Database("manga-tracker").Collection("mangas")
-	err := collection.FindOne(context.TODO(),bson.M{"_id":mangaId}).Decode(&manga)
-	if err != nil{
-		return err
-	}
-	update := bson.M{
-		"$set": bson.M{
-			"vols": nil,
-			"lastVol": "0",
-		},
-	}
-	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": mangaId}, update)
+func DeleteAllVolsByMangaId(mangaId uuid.UUID) error {
+	ctx := context.Background()
+	tx, err := db.Pool.Begin(ctx)
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
-	return nil
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, `DELETE FROM vols WHERE manga_id = $1`, mangaId); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE manga SET last_vol = 0 WHERE id = $1`, mangaId); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }

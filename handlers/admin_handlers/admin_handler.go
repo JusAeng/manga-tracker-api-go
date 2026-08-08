@@ -8,7 +8,7 @@ import (
 	"github.com/JusAeng/manga-tracker-api-go/models"
 	"github.com/JusAeng/manga-tracker-api-go/repo"
 	"github.com/gofiber/fiber/v2"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/google/uuid"
 )
 
 // User Handlers
@@ -20,7 +20,7 @@ func GetAllUsers(c *fiber.Ctx) error {
 	return c.JSON(allUsers)
 }
 func DeleteUserById(c *fiber.Ctx) error {
-	objectID, err := primitive.ObjectIDFromHex(c.Params("id"))
+	objectID, err := uuid.Parse(c.Params("id"))
 	if err != nil{
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
@@ -63,7 +63,7 @@ func UpdateManga(c *fiber.Ctx) error {
 	return c.JSON(newManga)
 }
 func DeleteMangaByID(c *fiber.Ctx) error {
-	objectID, err := primitive.ObjectIDFromHex(c.Params("id"))
+	objectID, err := uuid.Parse(c.Params("id"))
 	if err != nil{
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
@@ -76,7 +76,7 @@ func DeleteMangaByID(c *fiber.Ctx) error {
 
 // Vol Handlers
 func CreateVol(c *fiber.Ctx) error {
-	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
+	mangaId, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ type ReqDeleteVols struct {
 }
 func DeleteVols(c *fiber.Ctx) error {
 	req := new(ReqDeleteVols)
-	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
+	mangaId, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return errors.New("manga ID invalid")
 	}
@@ -115,7 +115,7 @@ func DeleteVols(c *fiber.Ctx) error {
 }
 func UpdateVol(c *fiber.Ctx) error {
 	req := new(models.Vol)
-	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
+	mangaId, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return errors.New("manga ID invalid")
 	}

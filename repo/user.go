@@ -3,230 +3,221 @@ package repo
 import (
 	"context"
 	"errors"
-	"fmt"
-	"log"
 
 	"github.com/JusAeng/manga-tracker-api-go/db"
 	"github.com/JusAeng/manga-tracker-api-go/models"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
-// create
-func CreateUser(user *models.User) (*models.User, error) {
-	_, err := db.Client.Database("manga-tracker").Collection("users").InsertOne(context.TODO(), user)
-	if err != nil {
-		log.Printf("Couldn't create user : %v", err)
-		return user, err
-	}
-	return user, nil
-}
-func RegisterUser(userId primitive.ObjectID,name string,picture string) (*models.User, error){
-	collection := db.Client.Database("manga-tracker").Collection("users")
+// GetOrCreateUserByLineID looks up a user by their LINE sub, creating one
+// (and refreshing name/image) if this is their first login. Upserting in
+// a single statement avoids the find-then-insert race two concurrent first
+// logins from the same account used to be able to hit.
+func GetOrCreateUserByLineID(lineUserID, name, image string) (*models.User, error) {
 	var user models.User
-	user.ID = userId
-	user.Name = name
-	user.Image = picture
-	insertResult,err := collection.InsertOne(context.TODO(),user)
-	if err != nil{
-		return nil,err
-	}
-	err = collection.FindOne(context.Background(), bson.M{"_id": insertResult.InsertedID}).Decode(&user)
+	err := db.Pool.QueryRow(context.Background(), `
+		INSERT INTO users (line_user_id, name, image)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (line_user_id) DO UPDATE SET name = EXCLUDED.name, image = EXCLUDED.image
+		RETURNING id, line_user_id, name, image, created_at
+	`, lineUserID, name, image).Scan(&user.ID, &user.LineUserID, &user.Name, &user.Image, &user.CreatedAt)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-	
-	return &user,nil
+	return &user, nil
 }
 
-// delete
-func DeleteUserById(userId primitive.ObjectID) error{
-	collection := db.Client.Database("manga-tracker").Collection("users")
-	result, err := collection.DeleteOne(context.TODO(), bson.M{"_id": userId})
+func GetUserProfileById(userId uuid.UUID) (*models.User, error) {
+	var user models.User
+	err := db.Pool.QueryRow(context.Background(), `
+		SELECT id, line_user_id, name, image, created_at FROM users WHERE id = $1
+	`, userId).Scan(&user.ID, &user.LineUserID, &user.Name, &user.Image, &user.CreatedAt)
 	if err != nil {
-		log.Fatalf("[User] Error to delete user: %v", err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
 	}
-	if result.DeletedCount == 1 {
-		fmt.Println("[User] Delete userId:",userId)
-	}
-	return nil
+	return &user, nil
 }
 
-// read
-func GetUserProfileById(userId primitive.ObjectID) (*models.User) {
-	var userProfile *models.User
-	collection := db.Client.Database("manga-tracker").Collection("users")
-	err := collection.FindOne(context.TODO(), bson.M{"_id": userId}).Decode(&userProfile)
+func GetAllUsers() ([]*models.User, error) {
+	rows, err := db.Pool.Query(context.Background(), `
+		SELECT id, line_user_id, name, image, created_at FROM users ORDER BY created_at
+	`)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return userProfile
-}
+	defer rows.Close()
 
-func GetAllUsers() ([]*models.User,error) {
-	
 	var users []*models.User
+	for rows.Next() {
+		var user models.User
+		if err := rows.Scan(&user.ID, &user.LineUserID, &user.Name, &user.Image, &user.CreatedAt); err != nil {
+			return nil, err
+		}
+		users = append(users, &user)
+	}
+	return users, rows.Err()
+}
 
-	collection := db.Client.Database("manga-tracker").Collection("users")
-	cursor, err := collection.Find(context.TODO(), bson.D{})
+func DeleteUserById(userId uuid.UUID) error {
+	_, err := db.Pool.Exec(context.Background(), `DELETE FROM users WHERE id = $1`, userId)
+	return err
+}
+
+// UpdateUserProfile only ever touches "name" or "image" — the caller
+// (user_handlers.UpdateUserProfile) already allowlists the key, but SQL
+// column names can't be bind parameters anyway, so this switch is the
+// actual enforcement, not just a formality.
+func UpdateUserProfile(userId uuid.UUID, key string, newValue string) error {
+	var query string
+	switch key {
+	case "name":
+		query = `UPDATE users SET name = $1 WHERE id = $2`
+	case "image":
+		query = `UPDATE users SET image = $1 WHERE id = $2`
+	default:
+		return errors.New("unsupported profile field")
+	}
+	_, err := db.Pool.Exec(context.Background(), query, newValue, userId)
+	return err
+}
+
+// SubscribeMangaById toggles a subscription and keeps manga.subscribers_count
+// in sync atomically in the same transaction — no read-modify-write race.
+func SubscribeMangaById(userId uuid.UUID, mangaId uuid.UUID) ([]uuid.UUID, error) {
+	ctx := context.Background()
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	tag, err := tx.Exec(ctx, `DELETE FROM subscriptions WHERE user_id = $1 AND manga_id = $2`, userId, mangaId)
 	if err != nil {
 		return nil, err
 	}
 
-	err = cursor.All(context.TODO(), &users)
-	if err != nil {
-		log.Printf("Failed marshalling %v", err)
-	}
-	return users, err
-}
-
-// patch
-func UpdateUserProfile(userId primitive.ObjectID,key string,newValue string) error{
-	collection := db.Client.Database("manga-tracker").Collection("users")
-	filter := bson.M{"_id": userId}
-	update := bson.M{"$set": bson.M{key: newValue}}
-	_, err := collection.UpdateOne(context.TODO(), filter, update)
-	if err != nil{
-		log.Fatal("Repository: update user name to DB error ",err)
-		return err
-	}
-	return nil
-}
-
-
-// put
-func SubscribeMangaById(userId primitive.ObjectID,mangaId primitive.ObjectID) ([]string,error){
-	isMangaExist(mangaId)
-	collection := db.Client.Database("manga-tracker").Collection("users")
-	var user models.User
-	err := collection.FindOne(context.TODO(), bson.M{"_id":userId}).Decode(&user)
-	if err != nil{
-		fmt.Println("User not exist")
-		return []string{},err
-	}
-	temp := []string{}
-	if user.SubscribeList == nil {
-		user.SubscribeList = []string{mangaId.Hex()}
-	}else{
-		for _,e := range user.SubscribeList{
-			if e != mangaId.Hex() {
-				temp = append(temp, e)
-			}
+	if tag.RowsAffected() > 0 {
+		if _, err := tx.Exec(ctx, `UPDATE manga SET subscribers_count = subscribers_count - 1 WHERE id = $1`, mangaId); err != nil {
+			return nil, err
 		}
-		if len(temp) == len(user.SubscribeList){
-			temp = append(temp, mangaId.Hex())
+	} else {
+		if _, err := tx.Exec(ctx, `INSERT INTO subscriptions (user_id, manga_id) VALUES ($1, $2)`, userId, mangaId); err != nil {
+			return nil, err
 		}
-		user.SubscribeList = temp
-	}
-	update := bson.M{
-		"$set": bson.M{
-			"subscribeList": user.SubscribeList,
-			"totalSubscribe": len(user.SubscribeList),
-		},
-	}
-	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": userId}, update)
-	if err != nil {
-		fmt.Println(err)
-		return []string{},err
-	}
-	if len(temp) == len(user.SubscribeList){
-		UpdateMangaSubscriber(mangaId,1)
-	}else{
-		UpdateMangaSubscriber(mangaId,-1)
-	}
-	
-	return user.SubscribeList,nil
-}
-
-
-func UpdateOwnerList(userId primitive.ObjectID,mangaId primitive.ObjectID,vol int) ([]int,error) {
-	if !isMangaExist(mangaId){ 
-		return []int{}, errors.New("no manga exist")
-	}
-	collection := db.Client.Database("manga-tracker").Collection("users")
-	var user models.User
-	err := collection.FindOne(context.TODO(), bson.M{"_id":userId}).Decode(&user)
-	if err != nil {
-		fmt.Println("User not found eiei")
-		return []int{}, err
-	}
-	vols := []int{vol}
-	if user.OwnerList == nil {
-		user.OwnerList = map[string][]int{
-			mangaId.Hex(): vols,
-		}
-		user.TotalBooks = 1
-	}else{
-		allvols ,exist := user.OwnerList[mangaId.Hex()]
-		if !exist {
-			user.OwnerList[mangaId.Hex()] = vols
-			user.TotalBooks += 1
-		}else{
-			temp := []int{}
-			for _,v := range allvols{
-				if v == vol {
-					vol = 9999
-					user.TotalBooks -= 1
-					continue
-				}else{
-					if vol < v{
-						temp = append(temp, vol)
-						user.TotalBooks += 1
-						vol = 9999
-					}
-					temp = append(temp, v)
-				}
-			}
-			if vol < 9999 {
-				temp = append(temp, vol)
-				user.TotalBooks += 1
-			}
-			
-			user.OwnerList[mangaId.Hex()] = temp
+		if _, err := tx.Exec(ctx, `UPDATE manga SET subscribers_count = subscribers_count + 1 WHERE id = $1`, mangaId); err != nil {
+			return nil, err
 		}
 	}
-	update := bson.M{
-		"$set": bson.M{
-			"ownerList": user.OwnerList,
-			"totalBooks": user.TotalBooks,
-		},
-	}
-	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": userId}, update)
-	if err != nil {
-		fmt.Println(err)
-		return []int{},err
-	}
 
-	return user.OwnerList[mangaId.Hex()],nil
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return GetUserSubscriptionIDs(userId)
 }
 
-func UpdateRateList(userId primitive.ObjectID,mangaId primitive.ObjectID,score int) (error){
-	if !isMangaExist(mangaId){ return errors.New("no manga exist")}
-	user := GetUserProfileById(userId)
-	if user.RateList == nil{
-		user.RateList = make(map[string]int)
+func GetUserSubscriptionIDs(userId uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := db.Pool.Query(context.Background(), `SELECT manga_id FROM subscriptions WHERE user_id = $1`, userId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ids := []uuid.UUID{}
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// UpdateOwnerList toggles ownership of a specific volume. Looking the
+// volume up by (manga_id, vol_number) first, then inserting owned_volumes
+// against its real vol id, means the foreign key rejects ownership of a
+// volume that doesn't exist — no more hand-rolled isMangaExist check.
+func UpdateOwnerList(userId uuid.UUID, mangaId uuid.UUID, volNumber int) ([]int, error) {
+	ctx := context.Background()
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	var volID uuid.UUID
+	err = tx.QueryRow(ctx, `SELECT id FROM vols WHERE manga_id = $1 AND vol_number = $2`, mangaId, volNumber).Scan(&volID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errors.New("no such volume")
+		}
+		return nil, err
 	}
 
-	user.RateList[mangaId.Hex()] = score
+	tag, err := tx.Exec(ctx, `DELETE FROM owned_volumes WHERE user_id = $1 AND vol_id = $2`, userId, volID)
+	if err != nil {
+		return nil, err
+	}
+
+	if tag.RowsAffected() > 0 {
+		if _, err := tx.Exec(ctx, `UPDATE vols SET total_owner_count = total_owner_count - 1 WHERE id = $1`, volID); err != nil {
+			return nil, err
+		}
+	} else {
+		if _, err := tx.Exec(ctx, `INSERT INTO owned_volumes (user_id, vol_id) VALUES ($1, $2)`, userId, volID); err != nil {
+			return nil, err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE vols SET total_owner_count = total_owner_count + 1 WHERE id = $1`, volID); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return GetOwnedVolumeNumbers(userId, mangaId)
+}
+
+func GetOwnedVolumeNumbers(userId uuid.UUID, mangaId uuid.UUID) ([]int, error) {
+	rows, err := db.Pool.Query(context.Background(), `
+		SELECT v.vol_number FROM owned_volumes ov
+		JOIN vols v ON v.id = ov.vol_id
+		WHERE ov.user_id = $1 AND v.manga_id = $2
+		ORDER BY v.vol_number
+	`, userId, mangaId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	nums := []int{}
+	for rows.Next() {
+		var n int
+		if err := rows.Scan(&n); err != nil {
+			return nil, err
+		}
+		nums = append(nums, n)
+	}
+	return nums, rows.Err()
+}
+
+// UpdateRateList treats score == 0 as "remove my rating", matching the
+// existing API contract. manga.score/total_voters are kept correct by the
+// trg_ratings_refresh_stats trigger — no averaging math here anymore.
+func UpdateRateList(userId uuid.UUID, mangaId uuid.UUID, score int) error {
+	ctx := context.Background()
 	if score == 0 {
-		delete(user.RateList,mangaId.Hex())
-	}
-	update := bson.M{
-		"$set": bson.M{
-			"rateList": user.RateList,
-		},
-	}
-
-	collection := db.Client.Database("manga-tracker").Collection("users")
-	_, err := collection.UpdateOne(context.TODO(), bson.M{"_id": userId}, update)
-	if err != nil {
-		fmt.Println(err)
+		_, err := db.Pool.Exec(ctx, `DELETE FROM ratings WHERE user_id = $1 AND manga_id = $2`, userId, mangaId)
 		return err
 	}
-	// err = UpdateMangaScore(mangaId,score)
-	// if err != nil {
-	// 	return errors.New("update fail")
-	// }
-
+	_, err := db.Pool.Exec(ctx, `
+		INSERT INTO ratings (user_id, manga_id, score, updated_at)
+		VALUES ($1, $2, $3, now())
+		ON CONFLICT (user_id, manga_id) DO UPDATE SET score = EXCLUDED.score, updated_at = now()
+	`, userId, mangaId, score)
 	return err
 }
