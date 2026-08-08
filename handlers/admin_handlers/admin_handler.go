@@ -1,131 +1,364 @@
 package admin_handlers
 
 import (
-	"errors"
-	"fmt"
-	"log"
-
 	"github.com/JusAeng/manga-tracker-api-go/models"
 	"github.com/JusAeng/manga-tracker-api-go/repo"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
 
-// User Handlers
+// Users
+
 func GetAllUsers(c *fiber.Ctx) error {
-	allUsers,err := repo.GetAllUsers()
-	if err != nil{
-		return nil
+	allUsers, err := repo.GetAllUsers()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
 	return c.JSON(allUsers)
 }
+
 func DeleteUserById(c *fiber.Ctx) error {
-	objectID, err := uuid.Parse(c.Params("id"))
-	if err != nil{
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
-	err = repo.DeleteUserById(objectID)
-	if err != nil {
+	if err := repo.DeleteUserById(id); err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 	return c.SendStatus(fiber.StatusAccepted)
 }
 
-// Manga Hanlers
-func CreateManga(c *fiber.Ctx) error { 
-	manga := new(models.Manga)
+// Manga
 
+func CreateManga(c *fiber.Ctx) error {
+	manga := new(models.Manga)
 	if err := c.BodyParser(manga); err != nil {
-		fmt.Print(err)
-		return c.Status(fiber.StatusBadRequest).SendString("Error BodyParser")
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 	newManga, err := repo.AddManga(manga)
 	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusForbidden).SendString("")
-	}
-	return c.JSON(newManga) 
-}
-
-func UpdateManga(c *fiber.Ctx) error {
-	manga := new(models.Manga)
-
-	if err := c.BodyParser(manga); err != nil {
-		fmt.Print(err)
-		return c.Status(fiber.StatusBadRequest).SendString("Error BodyParser")
-	}
-
-	newManga, err := repo.UpdateManga(manga)
-	if err != nil {
-		fmt.Println(err)
-		return c.Status(fiber.StatusForbidden).SendString("update fail")
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 	return c.JSON(newManga)
 }
-func DeleteMangaByID(c *fiber.Ctx) error {
-	objectID, err := uuid.Parse(c.Params("id"))
-	if err != nil{
-		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
-	}
-	err = repo.DeleteMangaById(objectID)
+
+func UpdateManga(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
-	return c.Status(fiber.StatusAccepted).SendString(objectID.String())
+	manga := new(models.Manga)
+	if err := c.BodyParser(manga); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	manga.ID = id
+	updated, err := repo.UpdateManga(manga)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return c.JSON(updated)
 }
 
-// Vol Handlers
-func CreateVol(c *fiber.Ctx) error {
+func DeleteMangaByID(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	if err := repo.DeleteMangaById(id); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return c.Status(fiber.StatusAccepted).SendString(id.String())
+}
+
+// Manga <-> Author / Genre attachments
+
+type AttachAuthorRequest struct {
+	AuthorID uuid.UUID `json:"authorId"`
+	Role     string    `json:"role"`
+}
+
+func AttachMangaAuthor(c *fiber.Ctx) error {
 	mangaId, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return err
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
-	vol := new(models.Vol)
+	req := new(AttachAuthorRequest)
+	if err := c.BodyParser(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	if err := repo.AddMangaAuthor(mangaId, req.AuthorID, req.Role); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return c.SendStatus(fiber.StatusAccepted)
+}
+
+func DetachMangaAuthor(c *fiber.Ctx) error {
+	mangaId, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	req := new(AttachAuthorRequest)
+	if err := c.BodyParser(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	if err := repo.RemoveMangaAuthor(mangaId, req.AuthorID, req.Role); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return c.SendStatus(fiber.StatusAccepted)
+}
+
+type AttachGenreRequest struct {
+	GenreID uuid.UUID `json:"genreId"`
+}
+
+func AttachMangaGenre(c *fiber.Ctx) error {
+	mangaId, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	req := new(AttachGenreRequest)
+	if err := c.BodyParser(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	if err := repo.AddMangaGenre(mangaId, req.GenreID); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return c.SendStatus(fiber.StatusAccepted)
+}
+
+func DetachMangaGenre(c *fiber.Ctx) error {
+	mangaId, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	req := new(AttachGenreRequest)
+	if err := c.BodyParser(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	if err := repo.RemoveMangaGenre(mangaId, req.GenreID); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return c.SendStatus(fiber.StatusAccepted)
+}
+
+// Publishers
+
+func CreatePublisher(c *fiber.Ctx) error {
+	publisher := new(models.Publisher)
+	if err := c.BodyParser(publisher); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	newPublisher, err := repo.AddPublisher(publisher)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return c.JSON(newPublisher)
+}
+
+func UpdatePublisher(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	publisher := new(models.Publisher)
+	if err := c.BodyParser(publisher); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	publisher.ID = id
+	updated, err := repo.UpdatePublisher(publisher)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return c.JSON(updated)
+}
+
+func DeletePublisher(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	if err := repo.DeletePublisherById(id); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return c.SendStatus(fiber.StatusAccepted)
+}
+
+// Thai editions — :id is the manga's id on create (an edition is always
+// created under a manga), and the edition's own id on update/delete.
+
+func CreateThaiEdition(c *fiber.Ctx) error {
+	mangaId, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	edition := new(models.ThaiEdition)
+	if err := c.BodyParser(edition); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	edition.MangaID = mangaId
+	newEdition, err := repo.AddThaiEdition(edition)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return c.JSON(newEdition)
+}
+
+func UpdateThaiEdition(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	edition := new(models.ThaiEdition)
+	if err := c.BodyParser(edition); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	edition.ID = id
+	updated, err := repo.UpdateThaiEdition(edition)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return c.JSON(updated)
+}
+
+func DeleteThaiEdition(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	if err := repo.DeleteThaiEditionById(id); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return c.SendStatus(fiber.StatusAccepted)
+}
+
+// Volumes — :id is the thai edition's id on create, and the volume's own
+// id on update/delete (volumes have a real primary key, so there's no
+// need to route through the parent for a single-volume operation).
+
+func CreateVolume(c *fiber.Ctx) error {
+	thaiEditionId, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	vol := new(models.Volume)
 	if err := c.BodyParser(vol); err != nil {
-		log.Println("Error parsing request body:", err)
-    	log.Println("Request Body:", c.Body()) // Print the request body for debugging
-		return c.Status(fiber.StatusBadRequest).SendString("requestBody")
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
-	vol.MangaID = mangaId
-	newVol, err := repo.AddMangaVol(*vol)
+	vol.ThaiEditionID = thaiEditionId
+	newVol, err := repo.AddVolume(*vol)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 	return c.JSON(newVol)
 }
 
-type ReqDeleteVols struct {
-	VolNumbers []int `json:"volNumbers"`
+func UpdateVolume(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	vol := new(models.Volume)
+	if err := c.BodyParser(vol); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	updated, err := repo.UpdateVolume(id, *vol)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return c.JSON(updated)
 }
-func DeleteVols(c *fiber.Ctx) error {
-	req := new(ReqDeleteVols)
-	mangaId, err := uuid.Parse(c.Params("id"))
+
+func DeleteVolume(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return errors.New("manga ID invalid")
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
-	if err := c.BodyParser(req); err != nil {
-		fmt.Print(err)
-		return c.Status(fiber.StatusBadRequest).SendString("Error BodyParser")
+	if err := repo.DeleteVolumeById(id); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
-	res,err := repo.DeleteManyVols(mangaId,req.VolNumbers)
-	if err != nil {
-		return errors.New("delete error")
-	}
-	return c.JSON(res)
+	return c.SendStatus(fiber.StatusAccepted)
 }
-func UpdateVol(c *fiber.Ctx) error {
-	req := new(models.Vol)
-	mangaId, err := uuid.Parse(c.Params("id"))
+
+// Authors
+
+func CreateAuthor(c *fiber.Ctx) error {
+	author := new(models.Author)
+	if err := c.BodyParser(author); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	newAuthor, err := repo.AddAuthor(author)
 	if err != nil {
-		return errors.New("manga ID invalid")
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
-	if err := c.BodyParser(req); err != nil {
-		fmt.Print(err)
-		return c.Status(fiber.StatusBadRequest).SendString("Error BodyParser")
-	}
-	err = repo.UpdateVol(mangaId,*req)
+	return c.JSON(newAuthor)
+}
+
+func UpdateAuthor(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return errors.New("delete error")
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
-	return nil
+	author := new(models.Author)
+	if err := c.BodyParser(author); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	author.ID = id
+	updated, err := repo.UpdateAuthor(author)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return c.JSON(updated)
+}
+
+func DeleteAuthor(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	if err := repo.DeleteAuthorById(id); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return c.SendStatus(fiber.StatusAccepted)
+}
+
+// Genres
+
+func CreateGenre(c *fiber.Ctx) error {
+	genre := new(models.Genre)
+	if err := c.BodyParser(genre); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	newGenre, err := repo.AddGenre(genre)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return c.JSON(newGenre)
+}
+
+func UpdateGenre(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	genre := new(models.Genre)
+	if err := c.BodyParser(genre); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	genre.ID = id
+	updated, err := repo.UpdateGenre(genre)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return c.JSON(updated)
+}
+
+func DeleteGenre(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	if err := repo.DeleteGenreById(id); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return c.SendStatus(fiber.StatusAccepted)
 }

@@ -7,9 +7,10 @@ import (
 )
 
 type User struct {
-	ID         uuid.UUID `json:"id"`
-	LineUserID string    `json:"-"`
-	Name       string    `json:"name"`
-	Image      string    `json:"image"`
-	CreatedAt  time.Time `json:"createdAt"`
+	ID          uuid.UUID `json:"id"`
+	LineUserID  string    `json:"-"`
+	DisplayName string    `json:"displayName"`
+	PictureURL  string    `json:"pictureUrl"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
 }

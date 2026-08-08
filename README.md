@@ -1,7 +1,7 @@
 # manga-tracker-api-go
 
-Go/Fiber backend for the manga tracker. Handles LINE login, manga/volume
-data, and per-user subscribe/owner/rating lists.
+Go/Fiber backend for the manga tracker. Handles LINE login, manga/Thai
+edition/volume data, and per-user follow lists.
 
 ## Current state
 
@@ -72,41 +72,64 @@ for local testing without either (see the section below).
 
 ### Manga (requires a valid token, any role)
 
-| Method | Path                 | Notes |
-|--------|----------------------|-------|
-| GET    | `/manga`             | List all manga |
-| GET    | `/manga/:id`         | Single manga; `404` if it doesn't exist |
-| GET    | `/manga/highlight`   | The one manga flagged `is_highlight`; `404` if none is set |
-| GET    | `/manga/trending`    | 3 random manga — placeholder logic, not actual trending data |
-| GET    | `/manga/new`         | 5 random manga — placeholder, not sorted by release date |
-| GET    | `/manga/recommend`   | 8 random manga — placeholder |
+| Method | Path                         | Notes |
+|--------|------------------------------|-------|
+| GET    | `/manga?q=`                  | List/search manga — `q` matches either title, case-insensitive |
+| GET    | `/manga/:id`                 | Manga detail: the manga plus its credited authors (with role) and genres; `404` if it doesn't exist |
+| GET    | `/manga/:id/thai-editions`   | The manga's official Thai edition(s) |
+| GET    | `/thai-editions/:id/volumes` | A Thai edition's volumes, with release dates |
+| GET    | `/publishers/:id`            | Resolve a `publisherId` (e.g. from a Thai edition) to its name/links |
+| GET    | `/manga/trending`            | 3 random manga — placeholder logic, not actual trending data |
+| GET    | `/manga/new`                 | 5 random manga — placeholder, not sorted by release date |
+| GET    | `/manga/recommend`           | 8 random manga — placeholder |
 
 ### User (requires a valid token, any role)
 
-| Method | Path                        | Body / Params                          | Notes |
-|--------|-----------------------------|------------------------------------------|-------|
-| GET    | `/user/profile`             | —                                         | Current user's profile; `null` if no matching row |
-| PATCH  | `/user/profile`             | `{ "key": "name"\|"image", "value": "..." }` | Only `name`/`image` are allowed keys |
-| GET    | `/user/subscribelist`       | —                                         | Manga the current user is subscribed to |
-| PUT    | `/user/subscribe/:id`       | `:id` = manga id                          | Toggles subscription |
-| PUT    | `/user/ownerlist/:id/:vol`  | `:id` = manga id, `:vol` = volume number  | Toggles ownership of that volume |
-| PUT    | `/user/rating/:id/:score`   | `:id` = manga id, `:score` = 0-5          | Rates the manga |
+| Method | Path              | Body / Params                                    | Notes |
+|--------|-------------------|---------------------------------------------------|-------|
+| GET    | `/user/profile`   | —                                                   | Current user's profile; `null` if no matching row |
+| PATCH  | `/user/profile`   | `{ "key": "displayName"\|"pictureUrl", "value": "..." }` | Only these two keys are allowed |
+| GET    | `/user/following` | —                                                   | Manga the current user follows |
+| PUT    | `/user/follow/:id`| `:id` = manga id                                    | Toggles following |
 
 ### Admin (requires a token with `role: admin`, from `/auth/admin`)
 
-| Method | Path                | Body / Params                          | Notes |
-|--------|---------------------|-------------------------------------------|-------|
-| GET    | `/admin/users`       | —                                          | List all users |
-| DELETE | `/admin/user/:id`    | —                                          | Delete a user |
-| POST   | `/admin/manga`       | `Manga` JSON                               | Create a manga |
-| PATCH  | `/admin/manga/`      | `Manga` JSON (must include `id`)           | Update a manga — note: id comes from the body, not the URL |
-| DELETE | `/admin/manga/:id`   | —                                          | Delete a manga |
-| POST   | `/admin/vol/:id`     | `Vol` JSON, `:id` = manga id               | Add a volume |
-| PATCH  | `/admin/vol/:id`     | `Vol` JSON, `:id` = manga id               | Update a volume |
-| DELETE | `/admin/vol/:id`     | `{ "volNumbers": [1, 2, 3] }`, `:id` = manga id | Delete one or more volumes |
+Every `:id` below is the id of the resource named right before it in the
+path — no route reuses `:id` for a different entity's id.
+
+| Method | Path                              | Body / Params                              | Notes |
+|--------|-----------------------------------|---------------------------------------------|-------|
+| GET    | `/admin/users`                    | —                                            | List all users |
+| DELETE | `/admin/users/:id`                | —                                            | Delete a user |
+| POST   | `/admin/manga`                    | `Manga` JSON                                 | Create a manga |
+| PATCH  | `/admin/manga/:id`                | `Manga` JSON                                 | Update a manga |
+| DELETE | `/admin/manga/:id`                | —                                            | Delete a manga |
+| POST   | `/admin/manga/:id/authors`        | `{ "authorId", "role" }`                     | Credit an author on this manga |
+| DELETE | `/admin/manga/:id/authors`        | `{ "authorId", "role" }`                     | Remove that credit |
+| POST   | `/admin/manga/:id/genres`         | `{ "genreId" }`                              | Tag this manga with a genre |
+| DELETE | `/admin/manga/:id/genres`         | `{ "genreId" }`                              | Remove that tag |
+| POST   | `/admin/manga/:id/thai-editions`  | `ThaiEdition` JSON                           | Create a Thai edition of this manga |
+| PATCH  | `/admin/thai-editions/:id`        | `ThaiEdition` JSON                           | Update a Thai edition |
+| DELETE | `/admin/thai-editions/:id`        | —                                            | Delete a Thai edition (cascades its volumes) |
+| POST   | `/admin/thai-editions/:id/volumes`| `Volume` JSON                                | Add a volume to this edition |
+| PATCH  | `/admin/volumes/:id`              | `Volume` JSON                                | Update a volume (own id, not the edition's) |
+| DELETE | `/admin/volumes/:id`              | —                                            | Delete a volume |
+| POST   | `/admin/publishers`               | `Publisher` JSON                             | Create a publisher |
+| PATCH  | `/admin/publishers/:id`           | `Publisher` JSON                             | Update a publisher |
+| DELETE | `/admin/publishers/:id`           | —                                            | Delete a publisher (blocked if a Thai edition references it) |
+| POST   | `/admin/authors`                  | `{ "name" }`                                 | Create an author |
+| PATCH  | `/admin/authors/:id`              | `{ "name" }`                                 | Update an author |
+| DELETE | `/admin/authors/:id`              | —                                            | Delete an author |
+| POST   | `/admin/genres`                   | `{ "name" }`                                 | Create a genre |
+| PATCH  | `/admin/genres/:id`               | `{ "name" }`                                 | Update a genre |
+| DELETE | `/admin/genres/:id`               | —                                            | Delete a genre |
 
 `GET /hello` and `GET /foo/auth/:id` also exist but are leftover mock/dev
 routes, not part of the real API surface.
+
+**Not implemented on purpose:** reviews, ratings, comments,
+ownership/collection tracking, retailer/purchase links, and scraping
+tables — see [`docs/postgres-schema.md`](docs/postgres-schema.md) for why.
 
 ## Testing endpoints without a real LINE login
 

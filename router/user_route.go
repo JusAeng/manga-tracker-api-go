@@ -7,13 +7,10 @@ import (
 
 func routingUserPath(app *fiber.App) {
 	userRoute := app.Group("/user")
-	
-	userRoute.Get("/profile",user_handlers.GetUserProfile)
-	userRoute.Patch("/profile",user_handlers.UpdateUserProfile)
 
-	userRoute.Get("/subscribelist",user_handlers.GetSubscribeList)
+	userRoute.Get("/profile", user_handlers.GetUserProfile)
+	userRoute.Patch("/profile", user_handlers.UpdateUserProfile)
 
-	userRoute.Put("/subscribe/:id",user_handlers.UpdateSubscribe)
-	userRoute.Put("/ownerlist/:id/:vol",user_handlers.UpdateOwnerList)
-	userRoute.Put("/rating/:id/:score",user_handlers.UpdateRating)
+	userRoute.Get("/following", user_handlers.GetFollowedManga)
+	userRoute.Put("/follow/:id", user_handlers.UpdateFollow)
 }

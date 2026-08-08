@@ -1,248 +1,201 @@
-# PostgreSQL schema design
+# Postgres schema
 
-**Status: implemented.** `db/`, `models/`, and `repo/` were rewritten
-against this schema — see
-[`postgres-migration.md`](postgres-migration.md) for exactly what changed
-in that cutover. This document is kept as the schema reference and the
-reasoning behind each table; it was written by reading every Mongo
-`models/*.go` and `repo/*.go` file before the rewrite, so it covers what
-the app did before, mapped onto a relational shape.
+Status: implemented. See [`postgres-migration.md`](postgres-migration.md)
+for the earlier Mongo→Postgres cutover, and the relational redesign this
+doc now describes replaced that first Postgres schema outright — see
+"Why the redesign" below for what changed and why.
 
-## Why move off Mongo
+## Why the redesign
 
-The current data isn't document-shaped, it's relational — users subscribe
-to manga, own specific volumes, and rate manga; those are all many-to-many
-relationships currently faked with string lists (`SubscribeList`) and maps
-(`OwnerList`, `RateList`) embedded in the `User` document. That has two
-concrete costs today, not just a style preference:
+The first Postgres schema (a fairly direct port of the old Mongo shape)
+had `manga` doing three jobs at once: the work itself, its Thai
+publication details (`publisher`, `first_date_th`), and a single
+`author`/`genre` string that couldn't represent more than one credited
+person or category. It also stored derived values —
+`subscribers_count`, `score`, `total_voters`, `last_vol` — kept in sync by
+application code and a trigger, which is exactly the kind of
+denormalization that drifts out of sync the moment one code path forgets
+to update it.
 
-1. **No referential integrity.** `SubscribeList` and `OwnerList` store
-   manga/vol IDs as bare strings. Nothing stops a dangling reference to a
-   deleted manga; `repo/manga.go`'s `isMangaExist` is a hand-rolled
-   check standing in for what a foreign key gives you for free.
-2. **Read-modify-write races.** `SubscribeMangaById`, `UpdateOwnerList`,
-   `UpdateMangaSubscriber`, and `UpdateMangaScore` all fetch a document,
-   mutate it in Go, then `$set` the whole field back. Two concurrent
-   requests from the same user (e.g. a double-tap) can lose an update.
-   `UpdateMangaScore`'s running-average math (`(Score+score)/TotalVoters`)
-   is also just wrong — it doesn't factor out the previous average
-   correctly. Postgres transactions plus a trigger-maintained aggregate
-   (below) fix both problems structurally instead of patching the Go.
+The product direction is narrower than that schema assumed: no reviews,
+ratings, comments, or ownership/collection tracking, and no retailer or
+scraping data. What's left is a clean read path — browse/search manga,
+view a manga's official Thai edition and its volumes, follow a manga — so
+the schema was redesigned around that, with authors and genres promoted
+to real many-to-many relations instead of strings, and every derived
+value replaced by a query computed on demand.
 
 ## Schema
 
 ```mermaid
 erDiagram
-    users ||--o{ subscriptions : subscribes
-    users ||--o{ owned_volumes : owns
-    users ||--o{ ratings : rates
-    manga ||--o{ vols : has
-    manga ||--o{ subscriptions : "subscribed by"
-    manga ||--o{ ratings : "rated by"
-    vols ||--o{ owned_volumes : "owned by"
-
-    users {
-        uuid id PK
-        text line_user_id UK
-        text name
-        text image
-        timestamptz created_at
-    }
-    manga {
-        uuid id PK
-        text title
-        text author
-        text[] other_titles
-        text[] other_participate
-        text genre
-        text[] other_genres
-        text image
-        text introduction
-        text publisher
-        text first_date_jp
-        text first_date_th
-        int last_vol
-        bool is_highlight
-        int subscribers_count
-        numeric score
-        int total_voters
-    }
-    vols {
-        uuid id PK
-        uuid manga_id FK
-        int vol_number
-        text image
-        text publish_date
-        int total_owner_count
-    }
-    subscriptions {
-        uuid user_id FK
-        uuid manga_id FK
-        timestamptz created_at
-    }
-    owned_volumes {
-        uuid user_id FK
-        uuid vol_id FK
-        timestamptz created_at
-    }
-    ratings {
-        uuid user_id FK
-        uuid manga_id FK
-        smallint score
-        timestamptz updated_at
-    }
+    USERS ||--o{ FOLLOWS : follows
+    MANGA ||--o{ FOLLOWS : "followed by"
+    MANGA ||--o{ THAI_EDITIONS : "published as"
+    PUBLISHERS ||--o{ THAI_EDITIONS : publishes
+    THAI_EDITIONS ||--o{ VOLUMES : contains
+    MANGA ||--o{ MANGA_AUTHORS : credits
+    AUTHORS ||--o{ MANGA_AUTHORS : "credited on"
+    MANGA ||--o{ MANGA_GENRES : tagged
+    GENRES ||--o{ MANGA_GENRES : tags
 ```
 
 ### `users`
 
-| column        | type          | notes                                             |
-|---------------|---------------|----------------------------------------------------|
-| id            | uuid PK       | `gen_random_uuid()` default (pgcrypto)             |
-| line_user_id  | text UNIQUE   | raw LINE `sub`, stored directly                    |
-| name          | text          |                                                      |
-| image         | text          |                                                      |
-| created_at    | timestamptz   | default `now()`                                    |
-
-This drops `service/user_service.go`'s `EncryptHexId`/`shieftHex`/`meanHex`
-entirely. That code exists only to turn a LINE `sub` into something that
-looks like a Mongo ObjectID; with a real DB the user table just has its own
-generated `id` and a unique, indexed `line_user_id` column to look users up
-by. No custom encoding, no collision risk.
+| Column         | Type          | Notes                          |
+|----------------|---------------|---------------------------------|
+| `id`           | uuid PK       | `gen_random_uuid()`             |
+| `line_user_id` | text UNIQUE   | the LINE `sub` claim             |
+| `display_name` | text          | from LINE profile, editable      |
+| `picture_url`  | text          | from LINE profile, editable      |
+| `created_at`   | timestamptz   |                                  |
+| `updated_at`   | timestamptz   | set by the app on every update   |
 
 ### `manga`
 
-| column              | type         | notes                                          |
-|---------------------|--------------|--------------------------------------------------|
-| id                  | uuid PK      |                                                    |
-| title               | text         | indexed, used by `GetMangaByTitle`               |
-| author              | text         |                                                    |
-| other_titles        | text[]       | was `OtherTitle []string`                        |
-| other_participate   | text[]       |                                                    |
-| genre               | text         |                                                    |
-| other_genres        | text[]       |                                                    |
-| image               | text         |                                                    |
-| introduction        | text         |                                                    |
-| publisher           | text         |                                                    |
-| first_date_jp       | text         | kept as text — source data isn't reliably parseable to `date` |
-| first_date_th       | text         |                                                    |
-| last_vol            | int          | default 0                                        |
-| is_highlight        | bool         | replaces the hardcoded ObjectID in `GetMangaHighlight` |
-| subscribers_count   | int          | denormalized, see below                          |
-| score               | numeric(3,2) | denormalized, see below                          |
-| total_voters        | int          | denormalized, see below                          |
+The work itself — no publisher, author, genre, or Thai-specific fields
+here, those live in the tables below.
 
-`other_titles`/`other_participate`/`other_genres` stay as Postgres native
-arrays rather than join tables — they're descriptive, not something the
-app currently filters or joins on. If genre filtering becomes a real
-feature later, that's the point to normalize `genre`/`other_genres` into a
-`genres` + `manga_genres` join table; not needed for parity today.
+| Column           | Type        | Notes |
+|------------------|-------------|-------|
+| `id`             | uuid PK     | |
+| `title_original` | text        | e.g. the Japanese title |
+| `title_en`       | text        | |
+| `introduction`   | text        | |
+| `image_url`      | text        | |
+| `first_date_jp`  | date        | original JP release |
+| `status`         | text        | free text (e.g. ongoing/completed) — not an enum, left open since the domain doesn't fix the set of values |
+| `created_at`     | timestamptz | |
+| `updated_at`     | timestamptz | |
 
-`subscribers_count`, `score`, `total_voters` stay as denormalized columns
-(so the manga list page doesn't need a join/aggregate on every request),
-but they're no longer mutated by read-modify-write Go code. Instead:
+Indexed on `title_original` and `title_en` for the `GET /manga?q=` search.
 
-- `subscriptions`/`ratings` inserts and deletes update the counters in the
-  *same transaction*, using `UPDATE manga SET subscribers_count =
-  subscribers_count + 1 WHERE id = $1` — atomic, no lost updates.
-- `score`/`total_voters` are maintained by a Postgres trigger on
-  `ratings` (`AFTER INSERT OR UPDATE OR DELETE`) that recomputes
-  `AVG(score)`/`COUNT(*)` for that manga. This replaces
-  `UpdateMangaScore`'s incorrect running-average formula with a value
-  that's always exactly right, computed by Postgres itself.
+### `publishers`
 
-### `vols`
+| Column        | Type        |
+|---------------|-------------|
+| `id`          | uuid PK     |
+| `name`        | text UNIQUE |
+| `website_url` | text        |
+| `logo_url`    | text        |
+| `created_at`  | timestamptz |
+| `updated_at`  | timestamptz |
 
-| column            | type      | notes                                  |
-|-------------------|-----------|------------------------------------------|
-| id                | uuid PK   |                                            |
-| manga_id          | uuid FK   | `REFERENCES manga(id) ON DELETE CASCADE` |
-| vol_number        | int       |                                            |
-| image             | text      |                                            |
-| publish_date      | text      |                                            |
-| total_owner_count | int       | denormalized, atomic-updated like above  |
+### `thai_editions`
 
-`UNIQUE (manga_id, vol_number)` replaces the manual "already added this
-vol" loop in `repo/vol.go`'s `AddMangaVol`.
+The official Thai release of a manga — a manga can have more than one
+(e.g. a re-release under a different publisher), which is why this is its
+own table with a `manga_id` FK rather than columns on `manga`.
 
-### `subscriptions` (replaces `User.SubscribeList`)
+| Column          | Type        | Notes |
+|-----------------|-------------|-------|
+| `id`            | uuid PK     | |
+| `manga_id`      | uuid FK     | → `manga.id`, cascades on delete |
+| `publisher_id`  | uuid FK     | → `publishers.id`, `ON DELETE RESTRICT` — a publisher can't be deleted out from under an edition that references it |
+| `title_th`      | text        | |
+| `first_date_th` | date        | |
+| `created_at`    | timestamptz | |
+| `updated_at`    | timestamptz | |
 
-| column     | type        |
-|------------|-------------|
-| user_id    | uuid FK → `users(id) ON DELETE CASCADE` |
-| manga_id   | uuid FK → `manga(id) ON DELETE CASCADE` |
-| created_at | timestamptz |
+`UNIQUE (manga_id, publisher_id)` — one edition per publisher per manga.
 
-`PRIMARY KEY (user_id, manga_id)`. Toggling subscribe = `INSERT ... ON
-CONFLICT DO NOTHING` / `DELETE`, each wrapped with the `subscribers_count`
-update in one transaction.
+### `volumes`
 
-### `owned_volumes` (replaces `User.OwnerList`)
+A Thai edition's volumes, with release dates. Renamed from the old
+`vols`; scoped by `thai_edition_id` rather than `manga_id` since a volume
+belongs to a specific edition, not the work in the abstract.
 
-| column     | type        |
-|------------|-------------|
-| user_id    | uuid FK → `users(id) ON DELETE CASCADE` |
-| vol_id     | uuid FK → `vols(id) ON DELETE CASCADE`  |
-| created_at | timestamptz |
+| Column            | Type          | Notes |
+|-------------------|---------------|-------|
+| `id`              | uuid PK       | |
+| `thai_edition_id` | uuid FK       | → `thai_editions.id`, cascades on delete |
+| `volume_number`   | int           | |
+| `isbn`            | text UNIQUE   | nullable |
+| `publish_date`    | date          | |
+| `price`           | numeric(10,2) | nullable |
+| `image_url`       | text          | |
+| `status`          | text          | free text, same reasoning as `manga.status` |
+| `created_at`      | timestamptz   | |
+| `updated_at`      | timestamptz   | |
 
-`PRIMARY KEY (user_id, vol_id)`. Referencing `vols.id` (not
-`manga_id`+`vol_number`) means you *cannot* record ownership of a volume
-that doesn't exist — the foreign key does what `isMangaExist` currently
-does by hand, and does it correctly (today's check is keyed on manga, not
-the specific volume).
+`UNIQUE (thai_edition_id, volume_number)`.
 
-### `ratings` (replaces `User.RateList`)
+### `follows`
 
-| column     | type                              | notes |
-|------------|-----------------------------------|-------|
-| user_id    | uuid FK → `users(id) ON DELETE CASCADE` | |
-| manga_id   | uuid FK → `manga(id) ON DELETE CASCADE` | |
-| score      | smallint CHECK (score BETWEEN 1 AND 5)  | |
-| updated_at | timestamptz | |
+Renamed from `subscriptions` to match the "follow" language used
+everywhere else. A pure join table — no `total_owner_count`-style counter
+maintained anywhere; follower counts, if ever needed, are a `COUNT(*)`
+against this table rather than a stored column.
 
-`PRIMARY KEY (user_id, manga_id)`. The current API treats a score of `0`
-as "remove my rating" — that becomes `DELETE FROM ratings WHERE user_id =
-$1 AND manga_id = $2` instead of storing a sentinel `0` value, and the
-`CHECK` constraint means invalid scores are rejected by the database, not
-just by application code.
+| Column       | Type        |
+|--------------|-------------|
+| `user_id`    | uuid FK     |
+| `manga_id`   | uuid FK     |
+| `created_at` | timestamptz |
+
+`PRIMARY KEY (user_id, manga_id)`.
+
+### `authors` / `manga_authors`
+
+`authors` is just `id`/`name`/timestamps. `manga_authors` is the
+many-to-many join, with a `role` column so one person can be credited
+differently across works (or multiple times on the same work — story vs.
+art):
+
+```sql
+role text NOT NULL CHECK (role IN ('author', 'artist', 'story', 'illustrator'))
+```
+
+`PRIMARY KEY (manga_id, author_id, role)`.
+
+### `genres` / `manga_genres`
+
+`genres` is `id`/`name` only — no timestamps, it's pure reference data.
+`manga_genres` is the join table, `PRIMARY KEY (manga_id, genre_id)`.
 
 ## Indexes
 
-- `users(line_user_id)` — unique, needed on every login
-- `manga(title)` — `GetMangaByTitle`
-- `manga(is_highlight)` — partial index `WHERE is_highlight` if you keep
-  more than one flagged row over time
-- `vols(manga_id)`
-- `subscriptions(manga_id)`, `owned_volumes(vol_id)`, `ratings(manga_id)`
+Beyond the primary keys and the two `UNIQUE` constraints above:
+`idx_manga_title_original`, `idx_manga_title_en` (search),
+`idx_thai_editions_manga_id`, `idx_thai_editions_publisher_id`,
+`idx_volumes_thai_edition_id`, `idx_follows_manga_id`,
+`idx_manga_authors_author_id`, `idx_manga_genres_genre_id` — one per FK
+that gets queried in the reverse direction from its owning table.
 
 ## What stays as-is
 
-- Admin auth stays env-var + bcrypt (already fixed, see
-  `security-fixes.md`) — no `admins` table unless you want more than one
-  admin account later.
-- `GetMangaTrending`/`GetMangaRecommend`/`GetMangaNew` are just random
-  sampling today (`service.RandomManga`); `ORDER BY random() LIMIT n` is
-  the direct SQL equivalent and is fine at this data size.
+- Admin auth is still `ADMIN_USERNAME`/`ADMIN_PASSWORD_HASH` env vars +
+  bcrypt, not a database table — out of scope for this redesign.
+- `GET /manga/trending|new|recommend` still pick randomly from
+  `GetMangas("")` via `service.RandomManga` — placeholder ranking logic,
+  unrelated to the schema change.
+- RLS is enabled with no policies on every table (including all the new
+  ones), same reasoning as before: the Go backend connects as the
+  `postgres` role (`BYPASSRLS`), so this only blocks Supabase's PostgREST
+  auto-exposure of the `public` schema, not the app itself.
 
 ## Migration approach
 
-This was the plan going into the rewrite; see
-[`postgres-migration.md`](postgres-migration.md) for what actually
-happened and where it diverged (schema itself didn't change — the
-divergences are all in how the Go code maps onto it).
+Same as before: one init script
+(`docker/postgres/init/001_schema.sql`), not an incremental migration
+chain. This redesign **replaced that file in place** rather than adding a
+`002_...sql` — there was no data worth preserving (Postman test rows
+only), so the change was applied by dropping and recreating rather than
+writing a migration script for data that didn't need migrating. If real
+user data exists the next time the schema changes, that assumption no
+longer holds and an incremental migration is the right call.
 
-1. Write the schema above as versioned SQL — done as a single init script
-   (`docker/postgres/init/001_schema.sql`) rather than incremental
-   migrations, since there was no existing production schema to migrate
-   *from*. If/when this needs to evolve after real data exists in it,
-   switch to `golang-migrate` or `goose` for versioned migrations instead
-   of editing the init script in place.
-2. Swap `db/db.go` for a `pgx`/`pgxpool` connection pool, driven by a
-   single `DATABASE_URL` env var instead of the old
-   `DB_USER`/`DB_PASS` string concatenation — done.
-3. Rewrite `models/`, `repo/`, and the handlers that touch `SubscribeList`
-   /`OwnerList`/`RateList` — done.
-4. One-time data migration script to carry over existing Mongo data —
-   **not done**. There was no reachable production Mongo data at the time
-   of this migration (see the "no database, do I need one" conversation
-   that kicked this off); if that changes, write an export/import script
-   before pointing production at the new schema.
+## Deliberately not done
+
+- **Reviews, ratings, comments, ownership/collection tracking,
+  retailer/purchase links, scraping tables** — explicitly out of scope
+  for the current product direction, not just deferred.
+- **Notifications for new volume releases** — the `follows` +
+  `thai_editions`/`volumes` relationship already supports this (join
+  user → follows → manga → thai_editions → volumes, notify on insert)
+  without any additional schema; no `notifications` table exists yet
+  because the feature itself hasn't been built.
+- **Frontend updates** — `manga-tracker-cli` and `manga-tracker-backoffice`
+  both consume the old flat `manga`/`vols` shape directly and will not
+  work against this API until updated separately; that's tracked as
+  follow-up work, not part of this change.

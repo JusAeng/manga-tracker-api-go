@@ -2,8 +2,6 @@ package user_handlers
 
 import (
 	"errors"
-	"log"
-	"strconv"
 
 	"github.com/JusAeng/manga-tracker-api-go/repo"
 	"github.com/gofiber/fiber/v2"
@@ -33,18 +31,6 @@ func GetUserProfile(c *fiber.Ctx) error {
 	return c.JSON(userProfile)
 }
 
-func GetSubscribeList(c *fiber.Ctx) error {
-	userId, err := userIDFromContext(c)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).SendString("invalid userId")
-	}
-	result, err := repo.GetMangaFromSubscribeList(userId)
-	if err != nil {
-		return errors.New("get manga from subscribe list error")
-	}
-	return c.JSON(result)
-}
-
 type UpdateUserProfileRequest struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
@@ -57,12 +43,10 @@ func UpdateUserProfile(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).SendString("invalid userId")
 	}
 	if err = c.BodyParser(req); err != nil {
-		log.Println("Error parsing request body:", err)
-		log.Println("Request Body:", c.Body())
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 
-	if req.Key != "name" && req.Key != "image" {
+	if req.Key != "displayName" && req.Key != "pictureUrl" {
 		return c.Status(fiber.StatusBadRequest).SendString("Not Allow")
 	}
 	err = repo.UpdateUserProfile(userId, req.Key, req.Value)
@@ -72,7 +56,19 @@ func UpdateUserProfile(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusAccepted)
 }
 
-func UpdateSubscribe(c *fiber.Ctx) error {
+func GetFollowedManga(c *fiber.Ctx) error {
+	userId, err := userIDFromContext(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).SendString("invalid userId")
+	}
+	result, err := repo.GetUserFollowedManga(userId)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	}
+	return c.JSON(result)
+}
+
+func UpdateFollow(c *fiber.Ctx) error {
 	mangaId, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString("invalid mangaId")
@@ -81,55 +77,10 @@ func UpdateSubscribe(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).SendString("invalid userId")
 	}
-	subscribeList, err := repo.SubscribeMangaById(userId, mangaId)
+	followedIds, err := repo.ToggleFollow(userId, mangaId)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 
-	return c.JSON(subscribeList)
-}
-
-func UpdateOwnerList(c *fiber.Ctx) error {
-	mangaId, err := uuid.Parse(c.Params("id"))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString("ReqError")
-	}
-	vol, err := strconv.Atoi(c.Params("vol"))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString("ReqError")
-	}
-	userId, err := userIDFromContext(c)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).SendString("invalid userId")
-	}
-	ownerList, err := repo.UpdateOwnerList(userId, mangaId, vol)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
-	}
-
-	return c.JSON(ownerList)
-}
-
-func UpdateRating(c *fiber.Ctx) error {
-	mangaId, err := uuid.Parse(c.Params("id"))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString("ReqError")
-	}
-	score, err := strconv.Atoi(c.Params("score"))
-	if err != nil {
-		return errors.New("can't convert score")
-	}
-	if score < 0 || score > 5 {
-		return c.Status(fiber.StatusBadRequest).SendString("Rating between 0 - 5")
-	}
-	userId, err := userIDFromContext(c)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).SendString("Check userId")
-	}
-	err = repo.UpdateRateList(userId, mangaId, score)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
-	}
-
-	return c.JSON(score)
+	return c.JSON(followedIds)
 }

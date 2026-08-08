@@ -1,93 +1,106 @@
--- Proposed schema from docs/postgres-schema.md.
--- This is not wired into the Go app yet — it's here so the schema can be
--- reviewed/tested against a real database before the repo/models rewrite.
+-- Relational redesign — see docs/postgres-schema.md for the rationale.
+-- Domain: a manga work has zero or more official Thai editions (each from
+-- a publisher), each edition has volumes. Authors and genres are
+-- many-to-many against the manga work. Users follow manga (not editions
+-- or volumes). No derived/denormalized values are stored — counts and
+-- "latest volume" are computed on read.
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE users (
     id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     line_user_id  text UNIQUE NOT NULL,
-    name          text NOT NULL,
-    image         text,
-    created_at    timestamptz NOT NULL DEFAULT now()
+    display_name  text,
+    picture_url   text,
+    created_at    timestamptz NOT NULL DEFAULT now(),
+    updated_at    timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE manga (
-    id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    title              text NOT NULL,
-    author             text,
-    other_titles       text[] NOT NULL DEFAULT '{}',
-    other_participate  text[] NOT NULL DEFAULT '{}',
-    genre              text,
-    other_genres       text[] NOT NULL DEFAULT '{}',
-    image              text,
-    introduction       text,
-    publisher          text,
-    first_date_jp      text,
-    first_date_th      text,
-    last_vol           int NOT NULL DEFAULT 0,
-    is_highlight       boolean NOT NULL DEFAULT false,
-    subscribers_count  int NOT NULL DEFAULT 0,
-    score              numeric(3, 2) NOT NULL DEFAULT 0,
-    total_voters       int NOT NULL DEFAULT 0,
-    created_at         timestamptz NOT NULL DEFAULT now()
+    id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    title_original text,
+    title_en       text,
+    introduction   text,
+    image_url      text,
+    first_date_jp  date,
+    status         text,
+    created_at     timestamptz NOT NULL DEFAULT now(),
+    updated_at     timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_manga_title ON manga (title);
-CREATE INDEX idx_manga_is_highlight ON manga (is_highlight) WHERE is_highlight;
+CREATE INDEX idx_manga_title_original ON manga (title_original);
+CREATE INDEX idx_manga_title_en ON manga (title_en);
 
-CREATE TABLE vols (
-    id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    manga_id           uuid NOT NULL REFERENCES manga (id) ON DELETE CASCADE,
-    vol_number         int NOT NULL,
-    image              text,
-    publish_date       text,
-    total_owner_count  int NOT NULL DEFAULT 0,
-    UNIQUE (manga_id, vol_number)
+CREATE TABLE publishers (
+    id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name        text UNIQUE NOT NULL,
+    website_url text,
+    logo_url    text,
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    updated_at  timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_vols_manga_id ON vols (manga_id);
 
-CREATE TABLE subscriptions (
+CREATE TABLE thai_editions (
+    id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    manga_id      uuid NOT NULL REFERENCES manga (id) ON DELETE CASCADE,
+    publisher_id  uuid NOT NULL REFERENCES publishers (id) ON DELETE RESTRICT,
+    title_th      text NOT NULL,
+    first_date_th date,
+    created_at    timestamptz NOT NULL DEFAULT now(),
+    updated_at    timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (manga_id, publisher_id)
+);
+CREATE INDEX idx_thai_editions_manga_id ON thai_editions (manga_id);
+CREATE INDEX idx_thai_editions_publisher_id ON thai_editions (publisher_id);
+
+CREATE TABLE volumes (
+    id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    thai_edition_id uuid NOT NULL REFERENCES thai_editions (id) ON DELETE CASCADE,
+    volume_number   int NOT NULL,
+    isbn            text UNIQUE,
+    publish_date    date,
+    price           numeric(10, 2),
+    image_url       text,
+    status          text,
+    created_at      timestamptz NOT NULL DEFAULT now(),
+    updated_at      timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (thai_edition_id, volume_number)
+);
+CREATE INDEX idx_volumes_thai_edition_id ON volumes (thai_edition_id);
+
+CREATE TABLE follows (
     user_id     uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     manga_id    uuid NOT NULL REFERENCES manga (id) ON DELETE CASCADE,
     created_at  timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (user_id, manga_id)
 );
-CREATE INDEX idx_subscriptions_manga_id ON subscriptions (manga_id);
+CREATE INDEX idx_follows_manga_id ON follows (manga_id);
 
-CREATE TABLE owned_volumes (
-    user_id     uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-    vol_id      uuid NOT NULL REFERENCES vols (id) ON DELETE CASCADE,
+CREATE TABLE authors (
+    id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name        text NOT NULL,
     created_at  timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (user_id, vol_id)
+    updated_at  timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_owned_volumes_vol_id ON owned_volumes (vol_id);
 
-CREATE TABLE ratings (
-    user_id     uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-    manga_id    uuid NOT NULL REFERENCES manga (id) ON DELETE CASCADE,
-    score       smallint NOT NULL CHECK (score BETWEEN 1 AND 5),
-    updated_at  timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (user_id, manga_id)
+CREATE TABLE manga_authors (
+    manga_id   uuid NOT NULL REFERENCES manga (id) ON DELETE CASCADE,
+    author_id  uuid NOT NULL REFERENCES authors (id) ON DELETE CASCADE,
+    role       text NOT NULL CHECK (role IN ('author', 'artist', 'story', 'illustrator')),
+    PRIMARY KEY (manga_id, author_id, role)
 );
-CREATE INDEX idx_ratings_manga_id ON ratings (manga_id);
+CREATE INDEX idx_manga_authors_author_id ON manga_authors (author_id);
 
--- Keep manga.score / manga.total_voters correct automatically, instead of
--- the hand-rolled running-average update the Mongo code did.
-CREATE OR REPLACE FUNCTION refresh_manga_rating_stats() RETURNS trigger AS $$
-DECLARE
-    target_manga_id uuid := COALESCE(NEW.manga_id, OLD.manga_id);
-BEGIN
-    UPDATE manga
-    SET score = COALESCE((SELECT AVG(score) FROM ratings WHERE manga_id = target_manga_id), 0),
-        total_voters = (SELECT COUNT(*) FROM ratings WHERE manga_id = target_manga_id)
-    WHERE id = target_manga_id;
-    RETURN NULL;
-END;
-$$ LANGUAGE plpgsql;
+CREATE TABLE genres (
+    id    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name  text UNIQUE NOT NULL
+);
 
-CREATE TRIGGER trg_ratings_refresh_stats
-AFTER INSERT OR UPDATE OR DELETE ON ratings
-FOR EACH ROW EXECUTE FUNCTION refresh_manga_rating_stats();
+CREATE TABLE manga_genres (
+    manga_id  uuid NOT NULL REFERENCES manga (id) ON DELETE CASCADE,
+    genre_id  uuid NOT NULL REFERENCES genres (id) ON DELETE CASCADE,
+    PRIMARY KEY (manga_id, genre_id)
+);
+CREATE INDEX idx_manga_genres_genre_id ON manga_genres (genre_id);
 
 -- Supabase exposes every public-schema table over PostgREST by default,
 -- regardless of whether this app uses that API. Enable RLS with no
@@ -96,7 +109,11 @@ FOR EACH ROW EXECUTE FUNCTION refresh_manga_rating_stats();
 -- no effect on it — access control stays entirely in the Go handlers.
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE manga ENABLE ROW LEVEL SECURITY;
-ALTER TABLE vols ENABLE ROW LEVEL SECURITY;
-ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE owned_volumes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ratings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE publishers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE thai_editions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE volumes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE follows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE authors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE manga_authors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE genres ENABLE ROW LEVEL SECURITY;
+ALTER TABLE manga_genres ENABLE ROW LEVEL SECURITY;
