@@ -7,7 +7,7 @@ on:
 env:
   PROJECT_ID: manga-tracker-app-io
   GAR_LOCATION: asia-southeast1-docker.pkg.dev/manga-tracker-app-io/mgt-backend
-  SERVICE: mgt-backend-deploy
+  SERVICE: mgt-backend-api
   REGION: asia-southeast1
 
 jobs:
@@ -39,21 +39,21 @@ jobs:
 
       - name: Build and Push Container
         run: |-
-          docker build -t "${{ env.GAR_LOCATION }}/mgt-backend-deploy" ./
-          docker push "${{ env.GAR_LOCATION }}/mgt-backend-deploy"
+          docker build -t "${{ env.GAR_LOCATION }}/mgt-backend-api" ./
+          docker push "${{ env.GAR_LOCATION }}/mgt-backend-api"
           ls -la
 
-      - name: Deploy to Cloud Run
-        id: deploy
-        uses: google-github-actions/deploy-cloudrun@v2
-        with:
-          service: ${{ env.SERVICE }}
-          region: ${{ env.REGION }}
-          image: ${{ env.GAR_LOCATION }}/mgt-backend-deploy:latest
-          env_vars: |
-            DATABASE_URL=${{ secrets.DATABASE_URL }}
-            LINECLIENTID=${{ secrets.LINECLIENTID }}
-            JWT_SIGNED_STRING=${{ secrets.JWT_SIGNED_STRING }}
+      # - name: Deploy to Cloud Run
+      #   id: deploy
+      #   uses: google-github-actions/deploy-cloudrun@v2
+      #   with:
+      #     service: ${{ env.SERVICE }}
+      #     region: ${{ env.REGION }}
+      #     image: ${{ env.GAR_LOCATION }}/mgt-backend-api:latest
+      #     env_vars: |
+      #       DATABASE_URL=${{ secrets.DATABASE_URL }}
+      #       LINECLIENTID=${{ secrets.LINECLIENTID }}
+      #       JWT_SIGNED_STRING=${{ secrets.JWT_SIGNED_STRING }}
 
-      - name: Show Output
-        run: echo ${{ steps.deploy.outputs.url }}
+      # - name: Show Output
+      #   run: echo ${{ steps.deploy.outputs.url }}
