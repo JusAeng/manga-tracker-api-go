@@ -51,6 +51,23 @@ erDiagram
 | `created_at`   | timestamptz   |                                  |
 | `updated_at`   | timestamptz   | set by the app on every update   |
 
+### `admins`
+
+Unrelated to the manga domain — no FK to anything else, so it's left out
+of the ER diagram above. Backs `POST /auth/admin`; replaced the original
+`ADMIN_USERNAME`/`ADMIN_PASSWORD_HASH` env-var approach so more than one
+admin can exist and so an admin has a real `id` (the JWT carries
+`adminId`, not just a hardcoded `"admin"` string). See the README's
+"Creating an admin account" section.
+
+| Column          | Type        | Notes |
+|-----------------|-------------|-------|
+| `id`            | uuid PK     | |
+| `username`      | text UNIQUE | |
+| `password_hash` | text        | bcrypt, never the raw password |
+| `created_at`    | timestamptz | |
+| `updated_at`    | timestamptz | |
+
 ### `manga`
 
 The work itself — no publisher, author, genre, or Thai-specific fields
@@ -164,8 +181,6 @@ that gets queried in the reverse direction from its owning table.
 
 ## What stays as-is
 
-- Admin auth is still `ADMIN_USERNAME`/`ADMIN_PASSWORD_HASH` env vars +
-  bcrypt, not a database table — out of scope for this redesign.
 - `GET /manga/trending|new|recommend` still pick randomly from
   `GetMangas("")` via `service.RandomManga` — placeholder ranking logic,
   unrelated to the schema change.

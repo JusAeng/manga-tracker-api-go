@@ -36,7 +36,7 @@ func GetVolumesByThaiEditionId(thaiEditionId uuid.UUID) ([]*models.Volume, error
 	}
 	defer rows.Close()
 
-	var volumes []*models.Volume
+	volumes := make([]*models.Volume, 0)
 	for rows.Next() {
 		v, err := scanVolume(rows)
 		if err != nil {

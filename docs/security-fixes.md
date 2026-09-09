@@ -56,46 +56,20 @@ platform injects real environment variables) rather than an error.
 source — a plaintext, hardcoded, weak password that's visible to anyone
 with repo access.
 
-**Fix:** `AdminLogin` now reads `ADMIN_USERNAME` and `ADMIN_PASSWORD_HASH`
-from the environment and verifies the password with
+**Fix:** `AdminLogin` verifies the password with
 `bcrypt.CompareHashAndPassword`. `golang.org/x/crypto/bcrypt` was already a
 transitive dependency (pulled in by the Mongo driver), so it's now promoted
 to a direct one — no new dependency added.
 
-**Action required from you:** generate a bcrypt hash for whatever admin
-password you want to use, and add two new secrets.
-
-```bash
-# from manga-tracker-api-go/
-cat <<'EOF' > /tmp/hashgen.go
-package main
-
-import (
-	"fmt"
-	"golang.org/x/crypto/bcrypt"
-)
-
-func main() {
-	h, _ := bcrypt.GenerateFromPassword([]byte("your-new-admin-password"), bcrypt.DefaultCost)
-	fmt.Println(string(h))
-}
-EOF
-go run /tmp/hashgen.go
-```
-
-That prints something like:
-
-```
-$2a$10$3WlzHsdi5.9Uimqp91z2LOLEZ5LeJhnxd1pFYe.6KN4KFrpqW4jHi
-```
-
-Then add two GitHub Actions secrets (Settings → Secrets and variables →
-Actions) on the `manga-tracker-api-go` repo:
-
-- `ADMIN_USERNAME` — whatever admin username you want (e.g. `admin`)
-- `ADMIN_PASSWORD_HASH` — the full bcrypt hash string printed above
-
-For local development, add the same two keys to your local `.env`.
+**Update:** admin credentials originally lived in `ADMIN_USERNAME`/
+`ADMIN_PASSWORD_HASH` env vars (single admin, no row anywhere). That's
+since been replaced by a real `admins` table — `AdminLogin` looks the
+username up via `repo.GetAdminByUsername` and compares against the stored
+hash, same as before, just DB-backed instead of env-backed. Supports more
+than one admin, and the JWT now carries a real `adminId` claim instead of
+a hardcoded `"admin"` string. See the README's "Creating an admin account"
+section for `scripts/seedadmin`, which replaces the old hashgen-then-set-
+two-secrets flow — no GitHub Actions secrets needed for this anymore.
 
 ## 4. JWT verification didn't pin the signing algorithm
 

@@ -16,6 +16,14 @@ CREATE TABLE users (
     updated_at    timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE admins (
+    id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    username       text UNIQUE NOT NULL,
+    password_hash  text NOT NULL,
+    created_at     timestamptz NOT NULL DEFAULT now(),
+    updated_at     timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE manga (
     id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     title_original text,
@@ -108,6 +116,7 @@ CREATE INDEX idx_manga_genres_genre_id ON manga_genres (genre_id);
 -- the Go backend connects as the postgres role (BYPASSRLS), so this has
 -- no effect on it — access control stays entirely in the Go handlers.
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admins ENABLE ROW LEVEL SECURITY;
 ALTER TABLE manga ENABLE ROW LEVEL SECURITY;
 ALTER TABLE publishers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE thai_editions ENABLE ROW LEVEL SECURITY;

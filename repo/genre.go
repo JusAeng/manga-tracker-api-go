@@ -17,7 +17,7 @@ func GetGenres() ([]*models.Genre, error) {
 	}
 	defer rows.Close()
 
-	var genres []*models.Genre
+	genres := make([]*models.Genre, 0)
 	for rows.Next() {
 		var g models.Genre
 		if err := rows.Scan(&g.ID, &g.Name); err != nil {
@@ -73,7 +73,7 @@ func GetGenresByMangaId(mangaId uuid.UUID) ([]*models.Genre, error) {
 	}
 	defer rows.Close()
 
-	var genres []*models.Genre
+	genres := make([]*models.Genre, 0)
 	for rows.Next() {
 		var g models.Genre
 		if err := rows.Scan(&g.ID, &g.Name); err != nil {

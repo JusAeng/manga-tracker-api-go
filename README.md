@@ -21,8 +21,9 @@ it's gitignored, and CI injects secrets separately, see
 | `DATABASE_URL`         | Postgres connection string. Recommended: a Supabase **Session pooler** URI, e.g. `postgresql://postgres.<project-ref>:<url-encoded-password>@aws-0-<region>.pooler.supabase.com:5432/postgres` (URL-encode special characters in the password — see the note in `.env.example`). Alternatively `postgres://manga_tracker:manga_tracker_dev@localhost:5432/manga_tracker?sslmode=disable` for the local Docker Compose setup below |
 | `JWT_SIGNED_STRING`    | HMAC secret used to sign/verify session JWTs            |
 | `LINECLIENTID`         | LINE login channel ID, used to verify LINE ID tokens    |
-| `ADMIN_USERNAME`       | Admin login username                                    |
-| `ADMIN_PASSWORD_HASH`  | bcrypt hash of the admin password — generate with the snippet in `docs/security-fixes.md`, never store the raw password |
+
+Admin accounts live in the `admins` table now (see below), not env vars —
+`ADMIN_USERNAME`/`ADMIN_PASSWORD_HASH` are no longer read anywhere.
 
 ## Running locally
 
@@ -55,6 +56,19 @@ To reset it (drops all data and reloads the init script):
 docker compose down -v
 docker compose up -d postgres
 ```
+
+## Creating an admin account
+
+There's no signup route for admins on purpose — creating the first one
+has no authenticated caller yet. Use `scripts/seedadmin` to insert a row
+into the `admins` table directly (needs `DATABASE_URL` from your `.env`):
+
+```bash
+go run ./scripts/seedadmin -username admin -password "your-password"
+```
+
+Only the bcrypt hash is stored. Run it again with a different `-username`
+to add more admins — there's no limit of one.
 
 ## API endpoints
 
@@ -114,12 +128,15 @@ path — no route reuses `:id` for a different entity's id.
 | POST   | `/admin/thai-editions/:id/volumes`| `Volume` JSON                                | Add a volume to this edition |
 | PATCH  | `/admin/volumes/:id`              | `Volume` JSON                                | Update a volume (own id, not the edition's) |
 | DELETE | `/admin/volumes/:id`              | —                                            | Delete a volume |
+| GET    | `/admin/publishers`               | —                                            | List all publishers |
 | POST   | `/admin/publishers`               | `Publisher` JSON                             | Create a publisher |
 | PATCH  | `/admin/publishers/:id`           | `Publisher` JSON                             | Update a publisher |
 | DELETE | `/admin/publishers/:id`           | —                                            | Delete a publisher (blocked if a Thai edition references it) |
+| GET    | `/admin/authors`                  | —                                            | List all authors |
 | POST   | `/admin/authors`                  | `{ "name" }`                                 | Create an author |
 | PATCH  | `/admin/authors/:id`              | `{ "name" }`                                 | Update an author |
 | DELETE | `/admin/authors/:id`              | —                                            | Delete an author |
+| GET    | `/admin/genres`                   | —                                            | List all genres |
 | POST   | `/admin/genres`                   | `{ "name" }`                                 | Create a genre |
 | PATCH  | `/admin/genres/:id`               | `{ "name" }`                                 | Update a genre |
 | DELETE | `/admin/genres/:id`               | —                                            | Delete a genre |

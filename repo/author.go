@@ -19,7 +19,7 @@ func GetAuthors() ([]*models.Author, error) {
 	}
 	defer rows.Close()
 
-	var authors []*models.Author
+	authors := make([]*models.Author, 0)
 	for rows.Next() {
 		var a models.Author
 		if err := rows.Scan(&a.ID, &a.Name, &a.CreatedAt, &a.UpdatedAt); err != nil {
@@ -80,7 +80,7 @@ func GetAuthorsByMangaId(mangaId uuid.UUID) ([]*models.MangaAuthor, error) {
 	}
 	defer rows.Close()
 
-	var authors []*models.MangaAuthor
+	authors := make([]*models.MangaAuthor, 0)
 	for rows.Next() {
 		var ma models.MangaAuthor
 		if err := rows.Scan(&ma.AuthorID, &ma.Name, &ma.Role); err != nil {

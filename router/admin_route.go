@@ -12,6 +12,9 @@ func routingAdminPath(app *fiber.App) {
 	adminRoute.Get("/users", admin_handlers.GetAllUsers)
 	adminRoute.Delete("/users/:id", admin_handlers.DeleteUserById)
 
+	adminRoute.Get("/external/manga/search", admin_handlers.SearchExternalManga)
+	adminRoute.Get("/external/manga/:anilistId", admin_handlers.GetExternalMangaDraft)
+
 	adminRoute.Post("/manga", admin_handlers.CreateManga)
 	adminRoute.Patch("/manga/:id", admin_handlers.UpdateManga)
 	adminRoute.Delete("/manga/:id", admin_handlers.DeleteMangaByID)
@@ -28,14 +31,17 @@ func routingAdminPath(app *fiber.App) {
 	adminRoute.Patch("/volumes/:id", admin_handlers.UpdateVolume)
 	adminRoute.Delete("/volumes/:id", admin_handlers.DeleteVolume)
 
+	adminRoute.Get("/publishers", admin_handlers.GetPublishers)
 	adminRoute.Post("/publishers", admin_handlers.CreatePublisher)
 	adminRoute.Patch("/publishers/:id", admin_handlers.UpdatePublisher)
 	adminRoute.Delete("/publishers/:id", admin_handlers.DeletePublisher)
 
+	adminRoute.Get("/authors", admin_handlers.GetAuthors)
 	adminRoute.Post("/authors", admin_handlers.CreateAuthor)
 	adminRoute.Patch("/authors/:id", admin_handlers.UpdateAuthor)
 	adminRoute.Delete("/authors/:id", admin_handlers.DeleteAuthor)
 
+	adminRoute.Get("/genres", admin_handlers.GetGenres)
 	adminRoute.Post("/genres", admin_handlers.CreateGenre)
 	adminRoute.Patch("/genres/:id", admin_handlers.UpdateGenre)
 	adminRoute.Delete("/genres/:id", admin_handlers.DeleteGenre)

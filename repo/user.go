@@ -56,7 +56,7 @@ func GetAllUsers() ([]*models.User, error) {
 	}
 	defer rows.Close()
 
-	var users []*models.User
+	users := make([]*models.User, 0)
 	for rows.Next() {
 		u, err := scanUser(rows)
 		if err != nil {

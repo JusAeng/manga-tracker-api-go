@@ -30,7 +30,7 @@ func GetThaiEditionsByMangaId(mangaId uuid.UUID) ([]*models.ThaiEdition, error) 
 	}
 	defer rows.Close()
 
-	var editions []*models.ThaiEdition
+	editions := make([]*models.ThaiEdition, 0)
 	for rows.Next() {
 		e, err := scanThaiEdition(rows)
 		if err != nil {

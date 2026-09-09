@@ -40,7 +40,7 @@ func GetMangas(search string) ([]*models.Manga, error) {
 	}
 	defer rows.Close()
 
-	var mangas []*models.Manga
+	mangas := make([]*models.Manga, 0)
 	for rows.Next() {
 		m, err := scanManga(rows)
 		if err != nil {

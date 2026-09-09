@@ -44,8 +44,13 @@ func GetUserFollowedMangaIDs(userId uuid.UUID) ([]uuid.UUID, error) {
 }
 
 func GetUserFollowedManga(userId uuid.UUID) ([]*models.Manga, error) {
+	// mangaColumns is unqualified — fine for a plain SELECT FROM manga,
+	// but follows also has a created_at column, so the join needs the
+	// m. prefix explicitly or Postgres rejects it as ambiguous.
 	rows, err := db.Pool.Query(context.Background(), `
-		SELECT `+mangaColumns+` FROM manga m
+		SELECT m.id, m.title_original, m.title_en, m.introduction, m.image_url,
+			m.first_date_jp, m.status, m.created_at, m.updated_at
+		FROM manga m
 		JOIN follows f ON f.manga_id = m.id
 		WHERE f.user_id = $1
 		ORDER BY m.title_original
@@ -55,7 +60,7 @@ func GetUserFollowedManga(userId uuid.UUID) ([]*models.Manga, error) {
 	}
 	defer rows.Close()
 
-	var mangas []*models.Manga
+	mangas := make([]*models.Manga, 0)
 	for rows.Next() {
 		m, err := scanManga(rows)
 		if err != nil {

@@ -143,6 +143,14 @@ func DetachMangaGenre(c *fiber.Ctx) error {
 
 // Publishers
 
+func GetPublishers(c *fiber.Ctx) error {
+	publishers, err := repo.GetPublishers()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	}
+	return c.JSON(publishers)
+}
+
 func CreatePublisher(c *fiber.Ctx) error {
 	publisher := new(models.Publisher)
 	if err := c.BodyParser(publisher); err != nil {
@@ -281,6 +289,14 @@ func DeleteVolume(c *fiber.Ctx) error {
 
 // Authors
 
+func GetAuthors(c *fiber.Ctx) error {
+	authors, err := repo.GetAuthors()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	}
+	return c.JSON(authors)
+}
+
 func CreateAuthor(c *fiber.Ctx) error {
 	author := new(models.Author)
 	if err := c.BodyParser(author); err != nil {
@@ -322,6 +338,14 @@ func DeleteAuthor(c *fiber.Ctx) error {
 }
 
 // Genres
+
+func GetGenres(c *fiber.Ctx) error {
+	genres, err := repo.GetGenres()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	}
+	return c.JSON(genres)
+}
 
 func CreateGenre(c *fiber.Ctx) error {
 	genre := new(models.Genre)

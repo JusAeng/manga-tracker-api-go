@@ -28,7 +28,7 @@ func GetPublishers() ([]*models.Publisher, error) {
 	}
 	defer rows.Close()
 
-	var publishers []*models.Publisher
+	publishers := make([]*models.Publisher, 0)
 	for rows.Next() {
 		p, err := scanPublisher(rows)
 		if err != nil {

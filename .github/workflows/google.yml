@@ -5,10 +5,10 @@ on:
     branches: ["main"]
 
 env:
-  PROJECT_ID: totemic-life-417117 # TODO: update Google Cloud project id
-  GAR_LOCATION: asia-southeast1-docker.pkg.dev/totemic-life-417117/mgt-backend # TODO: update Artifact Registry location
-  SERVICE: mgt-backend-deploy # TODO: update Cloud Run service name
-  REGION: asia-southeast1 # TODO: update Cloud Run service region
+  PROJECT_ID: manga-tracker-app-io
+  GAR_LOCATION: asia-southeast1-docker.pkg.dev/manga-tracker-app-io/mgt-backend
+  SERVICE: mgt-backend-deploy
+  REGION: asia-southeast1
 
 jobs:
   deploy:
@@ -43,24 +43,17 @@ jobs:
           docker push "${{ env.GAR_LOCATION }}/mgt-backend-deploy"
           ls -la
 
-      # Secrets are no longer baked into the image. They're passed straight
-      # to the Cloud Run revision as env vars, so they never sit in a file
-      # inside a pushed, publicly-pullable container image.
       - name: Deploy to Cloud Run
         id: deploy
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: ${{ env.SERVICE }}
           region: ${{ env.REGION }}
-          # NOTE: If using a pre-built image, update the image name here
           image: ${{ env.GAR_LOCATION }}/mgt-backend-deploy:latest
           env_vars: |
             DATABASE_URL=${{ secrets.DATABASE_URL }}
             LINECLIENTID=${{ secrets.LINECLIENTID }}
             JWT_SIGNED_STRING=${{ secrets.JWT_SIGNED_STRING }}
-            ADMIN_USERNAME=${{ secrets.ADMIN_USERNAME }}
-            ADMIN_PASSWORD_HASH=${{ secrets.ADMIN_PASSWORD_HASH }}
 
-      # If required, use the Cloud Run url output in later steps
       - name: Show Output
         run: echo ${{ steps.deploy.outputs.url }}

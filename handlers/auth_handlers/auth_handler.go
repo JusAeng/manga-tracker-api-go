@@ -127,29 +127,27 @@ type AdminLoginType struct {
 }
 
 func AdminLogin(c *fiber.Ctx) error {
-	admin := new(AdminLoginType)
-	if err := c.BodyParser(admin); err != nil{
+	req := new(AdminLoginType)
+	if err := c.BodyParser(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString("Form invalid!")
 	}
 
-	adminUsername, err := config.GetEnv("ADMIN_USERNAME")
-	if err != nil || adminUsername == "" {
-		return errors.New("no env for ADMIN_USERNAME")
+	admin, err := repo.GetAdminByUsername(req.Username)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
-	adminPasswordHash, err := config.GetEnv("ADMIN_PASSWORD_HASH")
-	if err != nil || adminPasswordHash == "" {
-		return errors.New("no env for ADMIN_PASSWORD_HASH")
-	}
-
-	if admin.Username != adminUsername {
+	// Same response whether the username doesn't exist or the password is
+	// wrong — don't leak which one it was.
+	if admin == nil {
 		return c.Status(fiber.StatusUnauthorized).SendString("Not found this admin!")
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(adminPasswordHash), []byte(admin.Password)); err != nil {
+	if err := bcrypt.CompareHashAndPassword([]byte(admin.PasswordHash), []byte(req.Password)); err != nil {
 		return c.Status(fiber.StatusUnauthorized).SendString("Not found this admin!")
 	}
 	jwttoken := jwt.New(jwt.SigningMethodHS256)
 	claim := jwttoken.Claims.(jwt.MapClaims)
-	claim["username"] = "admin"
+	claim["adminId"] = admin.ID.String()
+	claim["username"] = admin.Username
 	claim["role"] = "admin"
 	claim["exp"] = time.Now().Add(time.Hour * 6).Unix()
 
