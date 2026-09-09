@@ -1,20 +1,26 @@
 package config
 
 import (
-	"fmt"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/joho/godotenv"
 )
 
-func GetEnv(key string) (string,error) {
-	err := godotenv.Load()
-	if err != nil{
-		fmt.Println("Can't Load Env")
-		return "",err
-	}
-	
+var loadDotEnvOnce sync.Once
 
-	return os.Getenv(strings.ToUpper(key)),nil
+// loadDotEnv loads a .env file for local development if one is present.
+// In deployed environments (Cloud Run, Docker with injected env vars) there
+// is no .env file, and that is expected, not an error, so we don't fail here.
+func loadDotEnv() {
+	loadDotEnvOnce.Do(func() {
+		_ = godotenv.Load()
+	})
+}
+
+func GetEnv(key string) (string, error) {
+	loadDotEnv()
+
+	return os.Getenv(strings.ToUpper(key)), nil
 }

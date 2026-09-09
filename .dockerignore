@@ -1,1 +1,6 @@
 Dockerfile
+.env
+.env.local
+.git
+.github
+.vscode

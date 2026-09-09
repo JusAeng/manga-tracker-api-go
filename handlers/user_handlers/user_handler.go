@@ -2,125 +2,85 @@ package user_handlers
 
 import (
 	"errors"
-	"fmt"
-	"log"
-	"strconv"
 
 	"github.com/JusAeng/manga-tracker-api-go/repo"
 	"github.com/gofiber/fiber/v2"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/google/uuid"
 )
 
-func GetUserProfile(c *fiber.Ctx) error {
-	userId,err := primitive.ObjectIDFromHex(c.Locals("userId").(string))
-	if err != nil {
-		fmt.Println("Convert primitiveID from hex error")
-		return err
+// userIDFromContext reads the userId set by JWTMiddleware. Admin tokens
+// carry no userId claim, so c.Locals("userId") can be nil here — asserting
+// straight to string would panic instead of failing the request cleanly.
+func userIDFromContext(c *fiber.Ctx) (uuid.UUID, error) {
+	userIdClaim, ok := c.Locals("userId").(string)
+	if !ok {
+		return uuid.UUID{}, errors.New("missing userId claim")
 	}
-	userProfile := repo.GetUserProfileById(userId)
+	return uuid.Parse(userIdClaim)
+}
+
+func GetUserProfile(c *fiber.Ctx) error {
+	userId, err := userIDFromContext(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).SendString("invalid userId")
+	}
+	userProfile, err := repo.GetUserProfileById(userId)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	}
 	return c.JSON(userProfile)
 }
 
-func GetSubscribeList(c *fiber.Ctx) error {
-	userId,err := primitive.ObjectIDFromHex(c.Locals("userId").(string))
-	if err != nil {
-		fmt.Println("Convert primitiveID from hex error")
-		return err
-	}
-	result,err := repo.GetMangaFromSubscribeList(userId)
-	if err != nil {
-		return errors.New("get manga from subscribe list error")
-	}
-	return c.JSON(result)
-}
-
 type UpdateUserProfileRequest struct {
-    Key   string `json:"key"`
-    Value string `json:"value"`
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 func UpdateUserProfile(c *fiber.Ctx) error {
 	req := new(UpdateUserProfileRequest)
-	userId,err := primitive.ObjectIDFromHex(c.Locals("userId").(string))
-	if err != nil{
-		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	userId, err := userIDFromContext(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).SendString("invalid userId")
 	}
 	if err = c.BodyParser(req); err != nil {
-		log.Println("Error parsing request body:", err)
-    	log.Println("Request Body:", c.Body())
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 
-	fmt.Println("handler",req.Key,req.Value)
-	if (req.Key != "name" && req.Key != "image") {
+	if req.Key != "displayName" && req.Key != "pictureUrl" {
 		return c.Status(fiber.StatusBadRequest).SendString("Not Allow")
 	}
-	err = repo.UpdateUserProfile(userId,req.Key,req.Value)
+	err = repo.UpdateUserProfile(userId, req.Key, req.Value)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
-	return  c.SendStatus(fiber.StatusAccepted)
+	return c.SendStatus(fiber.StatusAccepted)
 }
 
-func UpdateSubscribe(c *fiber.Ctx) error {
-	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
+func GetFollowedManga(c *fiber.Ctx) error {
+	userId, err := userIDFromContext(c)
 	if err != nil {
-		fmt.Println("Convert primitiveID from hex error")
-		return err
+		return c.Status(fiber.StatusUnauthorized).SendString("invalid userId")
 	}
-	userId,err := primitive.ObjectIDFromHex(c.Locals("userId").(string))
+	result, err := repo.GetUserFollowedManga(userId)
 	if err != nil {
-		fmt.Println("Convert primitiveID from hex error")
-		return err
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
-	subscribeList,err := repo.SubscribeMangaById(userId,mangaId)
-	if err != nil {
-		return err
-	}
-
-	return c.JSON(subscribeList)
+	return c.JSON(result)
 }
-func UpdateOwnerList(c *fiber.Ctx) error {
-	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
+
+func UpdateFollow(c *fiber.Ctx) error {
+	mangaId, err := uuid.Parse(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString("ReqError")
+		return c.Status(fiber.StatusBadRequest).SendString("invalid mangaId")
 	}
-	vol,err := strconv.Atoi(c.Params("vol"))
+	userId, err := userIDFromContext(c)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString("ReqError")
+		return c.Status(fiber.StatusUnauthorized).SendString("invalid userId")
 	}
-	userId,err := primitive.ObjectIDFromHex(c.Locals("userId").(string))
+	followedIds, err := repo.ToggleFollow(userId, mangaId)
 	if err != nil {
-		fmt.Println("Convert primitiveID from hex error")
-		return err
-	}
-	ownerList,err := repo.UpdateOwnerList(userId,mangaId,vol)
-	if err != nil{
-		return err
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 
-	return c.JSON(ownerList)
-}
-func UpdateRating(c *fiber.Ctx) error {
-	mangaId, err := primitive.ObjectIDFromHex(c.Params("id"))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString("ReqError")
-	}
-	score,err := strconv.Atoi(c.Params("score"))
-	if err != nil{
-		return errors.New("can't convert score")
-	}
-	if score < 0 || score > 5 {
-		return c.Status(fiber.StatusBadRequest).SendString("Rating between 0 - 5")
-	}
-	userId,err := primitive.ObjectIDFromHex(c.Locals("userId").(string))
-	if err != nil{
-		return c.Status(fiber.StatusBadRequest).SendString("Check userId")
-	}
-	err = repo.UpdateRateList(userId,mangaId,score)
-	if err != nil{
-		return err
-	}
-
-	return c.JSON(score)
+	return c.JSON(followedIds)
 }

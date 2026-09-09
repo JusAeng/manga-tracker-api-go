@@ -2,255 +2,91 @@ package repo
 
 import (
 	"context"
-
-	// "errors"
-	"fmt"
-	"log"
-
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"errors"
 
 	"github.com/JusAeng/manga-tracker-api-go/db"
 	"github.com/JusAeng/manga-tracker-api-go/models"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
-// Read
-func GetMangas() ([]*models.Manga, error) {
-	var mangas []*models.Manga
+const mangaColumns = `
+	id, title_original, title_en, introduction, image_url, first_date_jp,
+	status, created_at, updated_at
+`
 
-	collection := db.Client.Database("manga-tracker").Collection("mangas")
-	cursor, err := collection.Find(context.TODO(), bson.D{})
+func scanManga(row pgx.Row) (*models.Manga, error) {
+	var m models.Manga
+	err := row.Scan(
+		&m.ID, &m.TitleOriginal, &m.TitleEN, &m.Introduction, &m.ImageURL,
+		&m.FirstDateJP, &m.Status, &m.CreatedAt, &m.UpdatedAt,
+	)
 	if err != nil {
 		return nil, err
 	}
-
-	err = cursor.All(context.TODO(), &mangas)
-	if err != nil {
-		log.Printf("Failed marshalling %v", err)
-	}
-	return mangas, err
+	return &m, nil
 }
 
-func GetMangaById(id primitive.ObjectID) ([]*models.Manga, error) {
-	var manga []*models.Manga
-	
-	collection := db.Client.Database("manga-tracker").Collection("mangas")
-	cursor, err := collection.Find(context.TODO(), bson.M{"_id": id})
+// GetMangas lists manga, optionally filtered by a case-insensitive
+// substring match against either title. Pass "" for no filter.
+func GetMangas(search string) ([]*models.Manga, error) {
+	rows, err := db.Pool.Query(context.Background(), `
+		SELECT `+mangaColumns+` FROM manga
+		WHERE $1 = '' OR title_original ILIKE '%' || $1 || '%' OR title_en ILIKE '%' || $1 || '%'
+		ORDER BY title_original
+	`, search)
 	if err != nil {
 		return nil, err
 	}
-	err = cursor.All(context.TODO(), &manga)
-	if err != nil {
-		log.Printf("Failed marshalling %v", err)
-	}
-	return manga, err
-}
+	defer rows.Close()
 
-func GetMangaByTitle(title string) ([]*models.Manga, error) {
-	var manga []*models.Manga
-	
-	collection := db.Client.Database("manga-tracker").Collection("mangas")
-	cursor, err := collection.Find(context.TODO(), bson.M{"title": title})
-	if err != nil {
-		return nil, err
-	}
-	err = cursor.All(context.TODO(), &manga)
-	if err != nil {
-		log.Printf("Failed marshalling %v", err)
-	}
-	return manga, err
-}
-
-func GetMangaFromSubscribeList(userId primitive.ObjectID) ([]*models.Manga,error){
-	var manga []*models.Manga
-
-	collection := db.Client.Database("manga-tracker").Collection("mangas")
-	userProfile := GetUserProfileById(userId)
-	mySubscribeList := []primitive.ObjectID{}
-	for _,e := range userProfile.SubscribeList {
-		es,err := primitive.ObjectIDFromHex(e)
+	mangas := make([]*models.Manga, 0)
+	for rows.Next() {
+		m, err := scanManga(rows)
 		if err != nil {
-			fmt.Println("Convert primitiveID from hex error")
+			return nil, err
 		}
-		mySubscribeList = append(mySubscribeList, es)
+		mangas = append(mangas, m)
 	}
-	filter := bson.M{"_id": bson.M{"$in": mySubscribeList}}
-	cursor, err := collection.Find(context.TODO(), filter)
+	return mangas, rows.Err()
+}
+
+func GetMangaById(id uuid.UUID) (*models.Manga, error) {
+	row := db.Pool.QueryRow(context.Background(), `SELECT `+mangaColumns+` FROM manga WHERE id = $1`, id)
+	m, err := scanManga(row)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, err
 	}
-	err = cursor.All(context.TODO(), &manga)
-	if err != nil {
-		log.Printf("Failed marshalling %v", err)
-	}
-	return manga, err
+	return m, nil
 }
 
-func isMangaExist(mangaId primitive.ObjectID) bool {
-	collection := db.Client.Database("manga-tracker").Collection("mangas")
-	var result *models.Manga
-	err := collection.FindOne(context.TODO(), bson.M{"_id": mangaId}).Decode(&result)
-	if (err != nil){
-		fmt.Println(err)
-		return false
-	}
-	return true
-}
-
-// Create
 func AddManga(manga *models.Manga) (*models.Manga, error) {
-	manga.ID = primitive.NewObjectID()
-	_, err := db.Client.Database("manga-tracker").Collection("mangas").InsertOne(context.TODO(), manga)
-	if err != nil {
-		log.Printf("Couldn't add : %v", err)
-		return manga, err
-	}
-	return manga, nil
+	row := db.Pool.QueryRow(context.Background(), `
+		INSERT INTO manga (title_original, title_en, introduction, image_url, first_date_jp, status)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING `+mangaColumns,
+		manga.TitleOriginal, manga.TitleEN, manga.Introduction, manga.ImageURL, manga.FirstDateJP, manga.Status,
+	)
+	return scanManga(row)
 }
 
-// func AddMangaVol(mangaId primitive.ObjectID,vol models.Vol) (*models.Vol, error) {
-// 	var manga models.Manga
-// 	collection := db.Client.Database("manga-tracker").Collection("mangas")
-// 	err := collection.FindOne(context.TODO(),bson.M{"_id":mangaId}).Decode(&manga)
-// 	if err != nil{
-// 		return nil,err
-// 	}
-// 	vol.ID = primitive.NewObjectID()
-// 	vol.MangaID = manga.ID.Hex()
-// 	temp := []models.Vol{}
-// 	if manga.Vols == nil{
-// 		manga.Vols = []models.Vol{}
-// 		temp = append(temp, vol)
-// 	}else{
-// 		for idx,v := range manga.Vols{
-// 			if v.Vol == vol.Vol{
-// 				return nil,errors.New("Already Added")
-// 			}
-// 			if vol.Vol < v.Vol{
-// 				temp = append(temp, vol)
-// 				temp = append(temp, manga.Vols[idx:]...)
-// 				break
-// 			} 
-// 			temp = append(temp, v)
-// 		}
-// 	}
-// 	if len(manga.Vols) == len(temp){
-// 		temp = append(temp, vol)
-// 	}
-// 	manga.Vols = temp
-// 	manga.LastVol = manga.Vols[len(manga.Vols)-1].Vol
-// 	update := bson.M{
-// 		"$set": bson.M{
-// 			"vols": manga.Vols,
-// 			"lastVol": manga.LastVol,
-// 		},
-// 	}
-// 	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": mangaId}, update)
-// 	if err != nil {
-// 		fmt.Println(err)
-// 		return nil,err
-// 	}
-// 	return &vol, nil
-// }
-
-// Delete
-func DeleteMangaByTitle(title string) error {
-	collection := db.Client.Database("manga-tracker").Collection("mangas")
-	_, err := collection.DeleteOne(context.TODO(), bson.M{"title": title})
-	if err != nil {
-		log.Printf("Error : %v", err)
-	}
-	return nil
-}
-
-func DeleteMangaById(id primitive.ObjectID) error {
-	collection := db.Client.Database("manga-tracker").Collection("mangas")
-	_, err := collection.DeleteOne(context.TODO(), bson.M{"_id": id})
-	if err != nil {
-		log.Printf("Error : %v", err)
-	}
-	return nil
-}
-
-// Update
 func UpdateManga(manga *models.Manga) (*models.Manga, error) {
-	var existManga models.Manga
-	collection := db.Client.Database("manga-tracker").Collection("mangas")
-	err := collection.FindOne(context.TODO(), bson.M{"_id":manga.ID}).Decode(&existManga)
-	if err != nil{
-		return nil,err
-	}
-	update := bson.M{
-		"$set": bson.M{
-            "title":          manga.Title,
-            "otherTitles":    manga.OtherTitle,
-            "author":         manga.Author,
-            "otherParticipate": manga.OtherParticipate,
-            "genre":          manga.Genre,
-            "otherGenres":    manga.OtherGeres,
-            "image":          manga.Image,
-            "introduction":   manga.Introduction,
-            "publisher":      manga.Publisher,
-            "firstDateJP":    manga.FirstDateJP,
-            "firstDateTH":    manga.FirstDateTH,
-            "vols":           manga.Vols,
-            "lastVol":        manga.LastVol,
-        },
-	}
-	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": manga.ID}, update)
-	if err != nil {
-		fmt.Println(err)
-		return nil,err
-	}
-	return manga, nil
+	row := db.Pool.QueryRow(context.Background(), `
+		UPDATE manga SET
+			title_original = $1, title_en = $2, introduction = $3, image_url = $4,
+			first_date_jp = $5, status = $6, updated_at = now()
+		WHERE id = $7
+		RETURNING `+mangaColumns,
+		manga.TitleOriginal, manga.TitleEN, manga.Introduction, manga.ImageURL,
+		manga.FirstDateJP, manga.Status, manga.ID,
+	)
+	return scanManga(row)
 }
 
-// put
-func UpdateMangaSubscriber(mangaId primitive.ObjectID,n int) error {
-	collection := db.Client.Database("manga-tracker").Collection("mangas")
-	var manga models.Manga
-	err := collection.FindOne(context.TODO(), bson.M{"_id":mangaId}).Decode(&manga)
-	if err != nil{
-		return err
-	}
-	temp := manga.Subscribers + n
-	if (temp < 0){
-		temp = 0
-	}
-	update := bson.M{
-		"$set": bson.M{
-			"subscribers": temp,
-		},
-	}
-	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": mangaId}, update)
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-	
-	return nil
-}
-
-func UpdateMangaScore(mangaId primitive.ObjectID,score int) error {
-	collection := db.Client.Database("manga-tracker").Collection("mangas")
-	var manga models.Manga
-	err := collection.FindOne(context.TODO(), bson.M{"_id":mangaId}).Decode(&manga)
-	if err != nil{
-		return err
-	}
-	fmt.Println("OldScore: ",manga.Score," totalVoter: ",manga.TotalVoters)
-	fmt.Println("AllScore",(manga.Score+float32(score))/(float32(manga.TotalVoters)))
-	update := bson.M{
-		"$set": bson.M{
-			"score": (manga.Score+float32(score))/(float32(manga.TotalVoters)),
-			"totalVoters": manga.TotalVoters,
-		},
-	}
-	_, err = collection.UpdateOne(context.TODO(), bson.M{"_id": mangaId}, update)
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-	
-	return nil
+func DeleteMangaById(id uuid.UUID) error {
+	_, err := db.Pool.Exec(context.Background(), `DELETE FROM manga WHERE id = $1`, id)
+	return err
 }

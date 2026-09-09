@@ -6,13 +6,14 @@ import (
 	"github.com/google/uuid"
 )
 
-type Manga struct {
+type Volume struct {
 	ID            uuid.UUID  `json:"id"`
-	TitleOriginal string     `json:"titleOriginal"`
-	TitleEN       string     `json:"titleEn"`
-	Introduction  string     `json:"introduction"`
+	ThaiEditionID uuid.UUID  `json:"thaiEditionId"`
+	VolumeNumber  int        `json:"volumeNumber"`
+	ISBN          *string    `json:"isbn"`
+	PublishDate   *time.Time `json:"publishDate"`
+	Price         *float64   `json:"price"`
 	ImageURL      string     `json:"imageUrl"`
-	FirstDateJP   *time.Time `json:"firstDateJp"`
 	Status        string     `json:"status"`
 	CreatedAt     time.Time  `json:"createdAt"`
 	UpdatedAt     time.Time  `json:"updatedAt"`
