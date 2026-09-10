@@ -54,6 +54,8 @@ jobs:
             DATABASE_URL=${{ secrets.DATABASE_URL }}
             LINECLIENTID=${{ secrets.LINECLIENTID }}
             JWT_SIGNED_STRING=${{ secrets.JWT_SIGNED_STRING }}
+            LINECHANNELSECRET=${{ secrets.LINECHANNELSECRET }}
+            LINECHANNELACCESSTOKEN=${{ secrets.LINECHANNELACCESSTOKEN }}
 
       - name: Show Output
         run: echo ${{ steps.deploy.outputs.url }}

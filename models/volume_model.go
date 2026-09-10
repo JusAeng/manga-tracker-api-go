@@ -18,3 +18,13 @@ type Volume struct {
 	CreatedAt     time.Time  `json:"createdAt"`
 	UpdatedAt     time.Time  `json:"updatedAt"`
 }
+
+// MangaVolumeUpdate is a narrow, purpose-built result shape for "which of
+// this user's followed manga got a new volume recently" — not a table row,
+// so it doesn't follow the id/timestamps shape the rest of this file does.
+type MangaVolumeUpdate struct {
+	MangaTitleEN       string
+	MangaTitleOriginal string
+	VolumeNumber       int
+	PublishDate        time.Time
+}

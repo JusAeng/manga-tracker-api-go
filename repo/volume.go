@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/JusAeng/manga-tracker-api-go/db"
 	"github.com/JusAeng/manga-tracker-api-go/models"
@@ -45,6 +46,37 @@ func GetVolumesByThaiEditionId(thaiEditionId uuid.UUID) ([]*models.Volume, error
 		volumes = append(volumes, v)
 	}
 	return volumes, rows.Err()
+}
+
+// GetRecentVolumesForFollowedManga finds volumes published since `since`
+// for manga the given user follows — user -> follows -> manga ->
+// thai_editions -> volumes. `publish_date >= $2` naturally drops rows with
+// a NULL publish_date (the column is nullable): a NULL comparison is never
+// true, so Postgres excludes those rows from the WHERE clause on its own.
+func GetRecentVolumesForFollowedManga(userId uuid.UUID, since time.Time) ([]*models.MangaVolumeUpdate, error) {
+	rows, err := db.Pool.Query(context.Background(), `
+		SELECT m.title_en, m.title_original, v.volume_number, v.publish_date
+		FROM volumes v
+		JOIN thai_editions te ON te.id = v.thai_edition_id
+		JOIN manga m ON m.id = te.manga_id
+		JOIN follows f ON f.manga_id = m.id
+		WHERE f.user_id = $1 AND v.publish_date >= $2
+		ORDER BY v.publish_date DESC
+	`, userId, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	updates := make([]*models.MangaVolumeUpdate, 0)
+	for rows.Next() {
+		var u models.MangaVolumeUpdate
+		if err := rows.Scan(&u.MangaTitleEN, &u.MangaTitleOriginal, &u.VolumeNumber, &u.PublishDate); err != nil {
+			return nil, err
+		}
+		updates = append(updates, &u)
+	}
+	return updates, rows.Err()
 }
 
 func AddVolume(v models.Volume) (*models.Volume, error) {

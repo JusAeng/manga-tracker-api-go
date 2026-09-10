@@ -49,6 +49,23 @@ func GetUserProfileById(userId uuid.UUID) (*models.User, error) {
 	return u, nil
 }
 
+// GetUserByLineID is a plain lookup — unlike GetOrCreateUserByLineID it
+// never creates a row, since callers that only have a LINE sub (e.g. the
+// messaging webhook) don't have a display name/picture to create one with,
+// and shouldn't silently register an account for someone who just messaged
+// the OA without ever logging into the app.
+func GetUserByLineID(lineUserID string) (*models.User, error) {
+	row := db.Pool.QueryRow(context.Background(), `SELECT `+userColumns+` FROM users WHERE line_user_id = $1`, lineUserID)
+	u, err := scanUser(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return u, nil
+}
+
 func GetAllUsers() ([]*models.User, error) {
 	rows, err := db.Pool.Query(context.Background(), `SELECT `+userColumns+` FROM users ORDER BY created_at`)
 	if err != nil {
