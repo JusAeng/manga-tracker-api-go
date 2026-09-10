@@ -52,6 +52,29 @@ func GetMangaByIdHandler(c *fiber.Ctx) error {
 	return c.JSON(MangaDetail{Manga: manga, Authors: authors, Genres: genres})
 }
 
+// GetMangaRating returns a manga's average rating/count, plus the calling
+// user's own rating when there is one. userIdFromContext is inlined here
+// (rather than imported from user_handlers, which doesn't export it)
+// because an admin token has no userId claim and should still be able to
+// see the aggregate — myRating is just left nil in that case.
+func GetMangaRating(c *fiber.Ctx) error {
+	mangaId, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString("invalid mangaId")
+	}
+
+	var userId uuid.UUID
+	if claim, ok := c.Locals("userId").(string); ok {
+		userId, _ = uuid.Parse(claim)
+	}
+
+	avg, count, myRating, err := repo.GetMangaRatingSummary(mangaId, userId)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	}
+	return c.JSON(models.RatingSummary{AverageRating: avg, RatingCount: count, MyRating: myRating})
+}
+
 // GetThaiEditionsHandler lists the official Thai edition(s) of a manga.
 func GetThaiEditionsHandler(c *fiber.Ctx) error {
 	mangaId, err := uuid.Parse(c.Params("id"))

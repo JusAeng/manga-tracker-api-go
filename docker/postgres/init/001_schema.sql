@@ -83,6 +83,16 @@ CREATE TABLE follows (
 );
 CREATE INDEX idx_follows_manga_id ON follows (manga_id);
 
+CREATE TABLE ratings (
+    user_id     uuid NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    manga_id    uuid NOT NULL REFERENCES manga (id) ON DELETE CASCADE,
+    rating      smallint NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    updated_at  timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, manga_id)
+);
+CREATE INDEX idx_ratings_manga_id ON ratings (manga_id);
+
 CREATE TABLE authors (
     id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     name        text NOT NULL,
@@ -122,6 +132,7 @@ ALTER TABLE publishers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE thai_editions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE volumes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE follows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ratings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE authors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE manga_authors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE genres ENABLE ROW LEVEL SECURITY;

@@ -15,6 +15,7 @@ func routingMangaPath(app *fiber.App) {
 
 	mangaRoute.Get("/:id", manga_handlers.GetMangaByIdHandler)
 	mangaRoute.Get("/:id/thai-editions", manga_handlers.GetThaiEditionsHandler)
+	mangaRoute.Get("/:id/rating", manga_handlers.GetMangaRating)
 
 	app.Get("/thai-editions/:id/volumes", manga_handlers.GetVolumesHandler)
 	app.Get("/publishers/:id", manga_handlers.GetPublisherHandler)

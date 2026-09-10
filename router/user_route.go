@@ -13,4 +13,7 @@ func routingUserPath(app *fiber.App) {
 
 	userRoute.Get("/following", user_handlers.GetFollowedManga)
 	userRoute.Put("/follow/:id", user_handlers.UpdateFollow)
+
+	userRoute.Put("/rating/:id", user_handlers.RateManga)
+	userRoute.Delete("/rating/:id", user_handlers.DeleteRating)
 }

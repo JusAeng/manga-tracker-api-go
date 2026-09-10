@@ -31,6 +31,8 @@ value replaced by a query computed on demand.
 erDiagram
     USERS ||--o{ FOLLOWS : follows
     MANGA ||--o{ FOLLOWS : "followed by"
+    USERS ||--o{ RATINGS : rates
+    MANGA ||--o{ RATINGS : "rated by"
     MANGA ||--o{ THAI_EDITIONS : "published as"
     PUBLISHERS ||--o{ THAI_EDITIONS : publishes
     THAI_EDITIONS ||--o{ VOLUMES : contains
@@ -152,6 +154,26 @@ against this table rather than a stored column.
 
 `PRIMARY KEY (user_id, manga_id)`.
 
+### `ratings`
+
+Reversed the original "no ratings" decision (see "Deliberately not done"
+below) to back a 1-5 star rating feature, meant to feed a future
+recommendation system. Same shape as `follows` plus a value and
+`updated_at`, since — unlike a follow — a rating changes over time; upserts
+via `ON CONFLICT (user_id, manga_id) DO UPDATE`. No `average_rating`/
+`rating_count` column on `manga`: same "computed on demand" convention as
+`follows`' follower count.
+
+| Column       | Type        | Notes |
+|--------------|-------------|-------|
+| `user_id`    | uuid FK     | |
+| `manga_id`   | uuid FK     | |
+| `rating`     | smallint    | `CHECK (rating BETWEEN 1 AND 5)` |
+| `created_at` | timestamptz | |
+| `updated_at` | timestamptz | set on every re-rate |
+
+`PRIMARY KEY (user_id, manga_id)`.
+
 ### `authors` / `manga_authors`
 
 `authors` is just `id`/`name`/timestamps. `manga_authors` is the
@@ -175,7 +197,7 @@ role text NOT NULL CHECK (role IN ('author', 'artist', 'story', 'illustrator'))
 Beyond the primary keys and the two `UNIQUE` constraints above:
 `idx_manga_title_original`, `idx_manga_title_en` (search),
 `idx_thai_editions_manga_id`, `idx_thai_editions_publisher_id`,
-`idx_volumes_thai_edition_id`, `idx_follows_manga_id`,
+`idx_volumes_thai_edition_id`, `idx_follows_manga_id`, `idx_ratings_manga_id`,
 `idx_manga_authors_author_id`, `idx_manga_genres_genre_id` — one per FK
 that gets queried in the reverse direction from its owning table.
 
@@ -202,9 +224,10 @@ longer holds and an incremental migration is the right call.
 
 ## Deliberately not done
 
-- **Reviews, ratings, comments, ownership/collection tracking,
-  retailer/purchase links, scraping tables** — explicitly out of scope
-  for the current product direction, not just deferred.
+- **Reviews, comments, ownership/collection tracking, retailer/purchase
+  links, scraping tables** — explicitly out of scope for the current
+  product direction, not just deferred. (Ratings were on this list too,
+  but that was reversed — see `ratings` above.)
 - **Notifications for new volume releases** — the `follows` +
   `thai_editions`/`volumes` relationship already supports this (join
   user → follows → manga → thai_editions → volumes, notify on insert)

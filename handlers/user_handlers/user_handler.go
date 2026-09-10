@@ -3,6 +3,7 @@ package user_handlers
 import (
 	"errors"
 
+	"github.com/JusAeng/manga-tracker-api-go/models"
 	"github.com/JusAeng/manga-tracker-api-go/repo"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -83,4 +84,56 @@ func UpdateFollow(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(followedIds)
+}
+
+type RateMangaRequest struct {
+	Rating int `json:"rating"`
+}
+
+func RateManga(c *fiber.Ctx) error {
+	mangaId, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString("invalid mangaId")
+	}
+	userId, err := userIDFromContext(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).SendString("invalid userId")
+	}
+
+	req := new(RateMangaRequest)
+	if err = c.BodyParser(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	if req.Rating < 1 || req.Rating > 5 {
+		return c.Status(fiber.StatusBadRequest).SendString("rating must be between 1 and 5")
+	}
+
+	if err := repo.RateManga(userId, mangaId, req.Rating); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return sendRatingSummary(c, mangaId, userId)
+}
+
+func DeleteRating(c *fiber.Ctx) error {
+	mangaId, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString("invalid mangaId")
+	}
+	userId, err := userIDFromContext(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).SendString("invalid userId")
+	}
+
+	if err := repo.DeleteRating(userId, mangaId); err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+	return sendRatingSummary(c, mangaId, userId)
+}
+
+func sendRatingSummary(c *fiber.Ctx, mangaId, userId uuid.UUID) error {
+	avg, count, myRating, err := repo.GetMangaRatingSummary(mangaId, userId)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	}
+	return c.JSON(models.RatingSummary{AverageRating: avg, RatingCount: count, MyRating: myRating})
 }
