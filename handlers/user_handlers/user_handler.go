@@ -2,9 +2,11 @@ package user_handlers
 
 import (
 	"errors"
+	"log"
 
 	"github.com/JusAeng/manga-tracker-api-go/models"
 	"github.com/JusAeng/manga-tracker-api-go/repo"
+	"github.com/JusAeng/manga-tracker-api-go/service"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
@@ -111,6 +113,7 @@ func RateManga(c *fiber.Ctx) error {
 	if err := repo.RateManga(userId, mangaId, req.Rating); err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
+	publishRatingUpdatedAsync(userId)
 	return sendRatingSummary(c, mangaId, userId)
 }
 
@@ -127,6 +130,7 @@ func DeleteRating(c *fiber.Ctx) error {
 	if err := repo.DeleteRating(userId, mangaId); err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
+	publishRatingUpdatedAsync(userId)
 	return sendRatingSummary(c, mangaId, userId)
 }
 
@@ -136,4 +140,17 @@ func sendRatingSummary(c *fiber.Ctx, mangaId, userId uuid.UUID) error {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
 	return c.JSON(models.RatingSummary{AverageRating: avg, RatingCount: count, MyRating: myRating})
+}
+
+// publishRatingUpdatedAsync notifies the recommender service (Python, via
+// Pub/Sub) that this user's ratings changed, off the request path — the
+// user shouldn't wait on (or have their rating fail because of) a Pub/Sub
+// publish. Fire-and-forget, logged on failure, same as the LINE webhook's
+// reply-failure handling elsewhere in this codebase.
+func publishRatingUpdatedAsync(userId uuid.UUID) {
+	go func() {
+		if err := service.PublishRatingUpdated(userId.String()); err != nil {
+			log.Println("failed to publish rating-updated event:", err)
+		}
+	}()
 }
