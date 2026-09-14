@@ -2,6 +2,7 @@ package auth_handlers
 
 import (
 	"bytes"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"log"
@@ -12,7 +13,6 @@ import (
 	"github.com/JusAeng/manga-tracker-api-go/repo"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
-	"golang.org/x/crypto/bcrypt"
 
 	"fmt"
 	"io"
@@ -122,32 +122,31 @@ func Login(c *fiber.Ctx) error {
 }
 
 type AdminLoginType struct {
-	Username	string	`json:"username"`
-	Password	string	`json:"password"`
+	ApiKey string `json:"apiKey"`
 }
 
+// AdminLogin trades a single shared API key (ADMINAPIKEY) for an admin JWT,
+// replacing the old per-admin username/password + admins table — there's
+// only ever one admin using this panel, so a shared secret is enough, and
+// it removes the need to manage admin accounts/bcrypt hashes at all.
 func AdminLogin(c *fiber.Ctx) error {
 	req := new(AdminLoginType)
 	if err := c.BodyParser(req); err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString("Form invalid!")
 	}
 
-	admin, err := repo.GetAdminByUsername(req.Username)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	adminApiKey, err := config.GetEnv("AdminApiKey")
+	if err != nil || adminApiKey == "" {
+		return errors.New("no env for ADMINAPIKEY")
 	}
-	// Same response whether the username doesn't exist or the password is
-	// wrong — don't leak which one it was.
-	if admin == nil {
-		return c.Status(fiber.StatusUnauthorized).SendString("Not found this admin!")
+	// Constant-time compare — a plain == here would leak how many leading
+	// characters matched via response timing.
+	if subtle.ConstantTimeCompare([]byte(req.ApiKey), []byte(adminApiKey)) != 1 {
+		return c.Status(fiber.StatusUnauthorized).SendString("Invalid API key")
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(admin.PasswordHash), []byte(req.Password)); err != nil {
-		return c.Status(fiber.StatusUnauthorized).SendString("Not found this admin!")
-	}
+
 	jwttoken := jwt.New(jwt.SigningMethodHS256)
 	claim := jwttoken.Claims.(jwt.MapClaims)
-	claim["adminId"] = admin.ID.String()
-	claim["username"] = admin.Username
 	claim["role"] = "admin"
 	claim["exp"] = time.Now().Add(time.Hour * 6).Unix()
 

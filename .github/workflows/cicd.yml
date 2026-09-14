@@ -58,6 +58,7 @@ jobs:
             LINECHANNELACCESSTOKEN=${{ secrets.LINECHANNELACCESSTOKEN }}
             GCPPROJECTID=${{ env.PROJECT_ID }}
             PUBSUBRATINGTOPIC=${{ vars.PUBSUB_RATING_TOPIC }}
+            ADMINAPIKEY=${{ secrets.ADMINAPIKEY }}
 
       - name: Show Output
         run: echo ${{ steps.deploy.outputs.url }}
