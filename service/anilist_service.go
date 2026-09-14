@@ -84,13 +84,17 @@ func anilistPost(query string, variables map[string]any, out any) error {
 	return json.NewDecoder(res.Body).Decode(out)
 }
 
+// AniList's coverImage field names don't match their own CDN path sizes:
+// "medium" -> /small/, "large" -> /medium/ (230x359, too soft for a
+// full-width hero), "extraLarge" -> /large/ (460x717, the actual biggest
+// they serve) — extraLarge is deliberate here, not a typo.
 const searchQuery = `
 query ($search: String) {
   Page(page: 1, perPage: 8) {
     media(search: $search, type: MANGA, sort: SEARCH_MATCH) {
       id
       title { romaji english native }
-      coverImage { large }
+      coverImage { extraLarge }
       startDate { year }
       format
     }
@@ -113,7 +117,7 @@ func SearchExternalManga(query string) ([]ExternalMangaSummary, error) {
 						Native  string `json:"native"`
 					} `json:"title"`
 					CoverImage struct {
-						Large string `json:"large"`
+						ExtraLarge string `json:"extraLarge"`
 					} `json:"coverImage"`
 					StartDate anilistDate `json:"startDate"`
 					Format    string      `json:"format"`
@@ -133,7 +137,7 @@ func SearchExternalManga(query string) ([]ExternalMangaSummary, error) {
 			TitleEnglish:  m.Title.English,
 			TitleNative:   m.Title.Native,
 			Year:          m.StartDate.Year,
-			CoverImageURL: m.CoverImage.Large,
+			CoverImageURL: m.CoverImage.ExtraLarge,
 			Format:        m.Format,
 		})
 	}
@@ -145,7 +149,7 @@ query ($id: Int) {
   Media(id: $id, type: MANGA) {
     title { romaji english native }
     description(asHtml: false)
-    coverImage { large }
+    coverImage { extraLarge }
     startDate { year month day }
     status
     genres
@@ -206,7 +210,7 @@ func GetExternalMangaDraft(anilistID int) (*ExternalMangaDraft, error) {
 				} `json:"title"`
 				Description string `json:"description"`
 				CoverImage  struct {
-					Large string `json:"large"`
+					ExtraLarge string `json:"extraLarge"`
 				} `json:"coverImage"`
 				StartDate anilistDate `json:"startDate"`
 				Status    string      `json:"status"`
@@ -257,7 +261,7 @@ func GetExternalMangaDraft(anilistID int) (*ExternalMangaDraft, error) {
 		TitleOriginal: titleOriginal,
 		TitleEn:       titleEn,
 		Introduction:  m.Description,
-		ImageURL:      m.CoverImage.Large,
+		ImageURL:      m.CoverImage.ExtraLarge,
 		FirstDateJp:   m.StartDate.toISODate(),
 		Status:        anilistStatusToOurs(m.Status),
 		Authors:       authors,

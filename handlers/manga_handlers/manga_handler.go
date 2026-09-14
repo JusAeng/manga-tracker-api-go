@@ -126,7 +126,25 @@ func GetMangaTrending(c *fiber.Ctx) error {
 	return c.JSON(selected)
 }
 
+// GetMangaRecommend serves personalized picks from the recommendations
+// table (computed by the Python recommender service) when there are any
+// for this user, falling back to the random placeholder otherwise — a
+// brand new user, one who hasn't rated enough yet, or one the recommender
+// service hasn't caught up with, still sees something instead of a blank
+// section.
 func GetMangaRecommend(c *fiber.Ctx) error {
+	if userIdClaim, ok := c.Locals("userId").(string); ok {
+		if userId, err := uuid.Parse(userIdClaim); err == nil {
+			recommended, err := repo.GetUserRecommendedManga(userId)
+			if err != nil {
+				return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+			}
+			if len(recommended) > 0 {
+				return c.JSON(recommended)
+			}
+		}
+	}
+
 	allManga, err := repo.GetMangas("")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
